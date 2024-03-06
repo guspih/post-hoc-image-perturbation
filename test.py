@@ -5,7 +5,9 @@ import numpy as np
 import scipy.special
 import time
 import warnings
-
+from skimage.segmentation import slic
+from PIL import Image
+import numbers
 
 def shap_kernel(M, s):
     #return ((M-1)/(
@@ -66,6 +68,32 @@ def shap_sampler(M, sample_size=None, ignore_warnings=False):
         l = i
     return samples
 
+def perturbation_masks(segment_masks, samples):
+    return np.tensordot(samples, segment_masks, axes=(1,0))
+
+def single_color_pertuber(image, segment_masks, samples, color):
+    if not issubclass(image.dtype.type, numbers.Integral):
+        if isinstance(color[0], numbers.Integral):
+            color = np.array(color)/255
+
+    sample_masks = perturbation_masks(segment_masks, samples)
+    perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))#perturbation_masks*image
+    perturbed_segments[sample_masks==0] = color
+    return perturbed_segments
+
+
+def slic_segmenter(image, nbr_segments, compactness):
+    segments = slic(
+        image,
+        n_segments=nbr_segments,
+        compactness=compactness,
+        start_label=0,
+    )
+    segment_ids = np.unique(segments)
+    segment_masks = np.zeros((segment_ids.shape[0],segments.shape[0], segments.shape[1]))
+    for id in segment_ids:
+        segment_masks[id] = np.where(segments==id,1.0,0.0)
+    return segments, segment_masks
 
 
 def test_shap(f, x, reference, sample_size=None):
@@ -104,6 +132,6 @@ print('a', a[0][:-1], a[0][-1])
 
 
 explainer = shap.KernelExplainer(f, np.reshape(reference, (1, len(reference))))
-shap_values = explainer.shap_values(x, nsamples=4)
-print("shap_values =", shap_values)
+values = explainer.shap_values(x, nsamples=4)
+print("shap_values =", values)
 print("base value =", explainer.expected_value)
