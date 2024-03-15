@@ -61,6 +61,15 @@ def shap_values(Y, Z):
     #return torch.linalg.lstsq(sqrt_pis.unsqueeze(dim=1) * Z, sqrt_pis * Y)
     return np.linalg.lstsq(sqrt_pis[:, None] * Z, sqrt_pis * Y, rcond=None)
 
+def rise_values(Y, Z):
+    return np.sum(Z*Y[:,None], axis=0)/np.sum(Z, axis=0)
+
+
+def random_sampler(M, sample_size=None, p=0.5):
+    if sample_size is None:
+        sample_size = M**2
+    return np.random.choice(2, (sample_size, M), p=(1-p, p))
+
 def naive_ciu_sampler(M, sample_size=None, inverse=False):
     if sample_size is None:
         sample_size = M
