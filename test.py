@@ -18,6 +18,35 @@ def shap_kernel(M, s):
         posinf=100000, neginf=100000
     )
 
+def naive_ciu_values(Y, Z):
+    M = Z.shape[1]
+    C = np.array([[[100000.0,-100000.0],[100000.0,-100000.0]]]*M)
+    for y, z in zip(Y,Z):
+        for i, c in enumerate(C):
+            c[z[i]] = (min(c[z[i]][0], y), max(c[z[i]][1], y))
+    importance = np.zeros(M)
+    for i, c in enumerate(C):
+        importance[i] = max(abs(c[0,1]-c[1,0]), abs(c[0,0]-c[1,1]))
+    return importance
+
+def original_ciu_values(Y, Z, inverse=False):
+    M = Z.shape[1]
+    point = 1 if inverse else 0
+    min_importance = np.zeros(M)
+    max_importance = np.zeros(M)
+    min_importance[:] = Y[np.where(Z==np.ones(M))[0][0]]
+    max_importance[:] = Y[np.where(Z==np.ones(M))[0][0]]
+    print(max_importance)
+    for y, z in zip(Y,Z):
+        min_importance[(z==point) & (min_importance>y)] = y
+        max_importance[(z==point) & (max_importance<y)] = y
+    importance = (max_importance-min_importance)/(
+        np.max(Y)-np.min(Y)
+    )
+    if inverse:
+        importance = 1-importance
+    return importance
+
 def shap_values(Y, Z):
     M = Z.shape[1]#torch.tensor(Z.size(dim=1))
     S = Z.sum(axis=1)
@@ -31,6 +60,15 @@ def shap_values(Y, Z):
     sqrt_pis = test[S]
     #return torch.linalg.lstsq(sqrt_pis.unsqueeze(dim=1) * Z, sqrt_pis * Y)
     return np.linalg.lstsq(sqrt_pis[:, None] * Z, sqrt_pis * Y, rcond=None)
+
+def naive_ciu_sampler(M, sample_size=None, inverse=False):
+    if sample_size is None:
+        sample_size = M
+    point = 1 if inverse else 0
+    samples = np.ones((sample_size, M)) if not inverse else np.zeros((sample_size, M))
+    samples[range(M), range(M)] = point
+    samples = np.concatenate((samples, np.ones((1,M))))
+    return samples.astype(int)
 
 def shap_sampler(M, sample_size=None, ignore_warnings=False):
     if sample_size is None:
@@ -79,7 +117,7 @@ def single_color_pertuber(image, segment_masks, samples, color):
     sample_masks = perturbation_masks(segment_masks, samples)
     perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))#perturbation_masks*image
     perturbed_segments[sample_masks==0] = color
-    return perturbed_segments
+    return perturbed_segments, samples
 
 
 def slic_segmenter(image, nbr_segments, compactness):
@@ -108,30 +146,3 @@ def test_shap(f, x, reference, sample_size=None):
     #y = torch.tensor(f(X), dtype=torch.float32)
     y = f(X)
     return shap_values(y, samples)
-
-def f(X):
-    np.random.seed(0)
-    beta = np.random.rand(X.shape[-1])
-    return np.dot(X, beta) + 10
-
-
-M = 4
-np.random.seed(1)
-x = np.random.randn(M)
-reference = np.zeros(M)
-
-
-
-tic = time.perf_counter()   
-#a = test_shap(f, torch.tensor(x, dtype=torch.float32), torch.tensor(reference, dtype=torch.float32))
-a = test_shap(f, x, reference, sample_size=6)
-toc = time.perf_counter()
-print(f'my took {toc - tic:0.4f} seconds')
-
-print('a', a[0][:-1], a[0][-1])
-
-
-explainer = shap.KernelExplainer(f, np.reshape(reference, (1, len(reference))))
-values = explainer.shap_values(x, nsamples=4)
-print("shap_values =", values)
-print("base value =", explainer.expected_value)
