@@ -6,6 +6,7 @@ import scipy.special
 import time
 import warnings
 from skimage.segmentation import slic
+from skimage.transform import resize
 from PIL import Image
 import numbers
 
@@ -36,7 +37,6 @@ def original_ciu_values(Y, Z, inverse=False):
     max_importance = np.zeros(M)
     min_importance[:] = Y[np.where(Z==np.ones(M))[0][0]]
     max_importance[:] = Y[np.where(Z==np.ones(M))[0][0]]
-    print(max_importance)
     for y, z in zip(Y,Z):
         min_importance[(z==point) & (min_importance>y)] = y
         max_importance[(z==point) & (max_importance<y)] = y
@@ -62,7 +62,10 @@ def shap_values(Y, Z):
     return np.linalg.lstsq(sqrt_pis[:, None] * Z, sqrt_pis * Y, rcond=None)
 
 def rise_values(Y, Z):
-    return np.sum(Z*Y[:,None], axis=0)/np.sum(Z, axis=0)
+    importance = np.sum(Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
+    occurance = np.sum(Z, axis=0)
+    return importance/occurance
+    #return np.sum(Z*Y[:,None], axis=0)/np.sum(Z, axis=0)
 
 
 def random_sampler(M, sample_size=None, p=0.5):
@@ -115,6 +118,7 @@ def shap_sampler(M, sample_size=None, ignore_warnings=False):
         l = i
     return samples
 
+
 def perturbation_masks(segment_masks, samples):
     return np.tensordot(samples, segment_masks, axes=(1,0))
 
@@ -124,8 +128,14 @@ def single_color_pertuber(image, segment_masks, samples, color):
             color = np.array(color)/255
 
     sample_masks = perturbation_masks(segment_masks, samples)
-    perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))#perturbation_masks*image
-    perturbed_segments[sample_masks==0] = color
+    #perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))#perturbation_masks*image
+    #perturbed_segments[sample_masks==0] = color
+    perturbed_segments = np.tile(image-color, (sample_masks.shape[0],1,1,1))
+    perturbed_segments = (
+        perturbed_segments*sample_masks.reshape(list(sample_masks.shape)+[1])
+    )+color
+    if isinstance(color[0], numbers.Integral):
+        perturbed_segments = perturbed_segments.astype(int, copy=False)
     return perturbed_segments, samples
 
 
@@ -142,6 +152,22 @@ def slic_segmenter(image, nbr_segments, compactness):
         segment_masks[id] = np.where(segments==id,1.0,0.0)
     return segments, segment_masks
 
+def grid_segmenter(image, h_segments, v_segments, rise_upscaling=False):
+    h_size, v_size = image.shape[0:2]
+    segments = np.arange(h_segments*v_segments).reshape(h_segments, v_segments)
+    segments = resize(
+        segments, (h_size,v_size), order=0, mode='reflect', anti_aliasing=False
+    )
+
+    segment_masks = np.zeros((h_segments*v_segments, h_segments, v_segments))
+    for i in range(h_segments*v_segments):
+        segment_masks[i, i//h_segments, i%v_segments] = 1
+    segment_masks = resize(
+        segment_masks, (h_segments*v_segments,h_size,v_size),
+        order=1 if rise_upscaling else 0, mode='reflect', anti_aliasing=False
+    )
+    
+    return segments, segment_masks
 
 def test_shap(f, x, reference, sample_size=None):
     M = x.shape[0]
