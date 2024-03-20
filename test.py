@@ -168,16 +168,3 @@ def grid_segmenter(image, h_segments, v_segments, rise_upscaling=False):
     )
     
     return segments, segment_masks
-
-def test_shap(f, x, reference, sample_size=None):
-    M = x.shape[0]
-    samples = shap_sampler(M, sample_size=sample_size)
-    #X = reference.tile(dims=(samples.shape[0],1))
-    X = np.tile(reference, reps=(samples.shape[0],1))
-    #x = x.tile(dims=(samples.shape[0],1))
-    x = np.tile(x, reps=(samples.shape[0],1))
-    idxs = samples==1
-    X[idxs] = x[idxs]
-    #y = torch.tensor(f(X), dtype=torch.float32)
-    y = f(X)
-    return shap_values(y, samples)
