@@ -30,22 +30,28 @@ def naive_ciu_values(Y, Z):
         importance[i] = max(abs(c[0,1]-c[1,0]), abs(c[0,0]-c[1,1]))
     return importance
 
-def original_ciu_values(Y, Z, inverse=False):
+def original_ciu_values(Y, Z, inverse=False, expected_util=0.5):
     M = Z.shape[1]
     point = 1 if inverse else 0
+    true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
     min_importance = np.zeros(M)
     max_importance = np.zeros(M)
-    min_importance[:] = Y[np.where(Z==np.ones(M))[0][0]]
-    max_importance[:] = Y[np.where(Z==np.ones(M))[0][0]]
+    min_importance[:] = true_y
+    max_importance[:] = true_y
     for y, z in zip(Y,Z):
-        min_importance[(z==point) & (min_importance>y)] = y
-        max_importance[(z==point) & (max_importance<y)] = y
-    importance = (max_importance-min_importance)/(
-        np.max(Y)-np.min(Y)
-    )
+        point_position = z==point
+        min_importance[point_position & (min_importance>y)] = y
+        max_importance[point_position & (max_importance<y)] = y
+    importance = (max_importance-min_importance)
+    utility = (true_y - min_importance)/importance
+    importance = importance/(np.max(Y)-np.min(Y))
     if inverse:
         importance = 1-importance
-    return importance
+    influence = importance*(utility-expected_util)
+    return importance, utility, influence
+
+def ciu_values(Y, Z):
+    pass
 
 def shap_values(Y, Z):
     M = Z.shape[1]#torch.tensor(Z.size(dim=1))
@@ -123,11 +129,12 @@ def perturbation_masks(segment_masks, samples):
     return np.tensordot(samples, segment_masks, axes=(1,0))
 
 def single_color_pertuber(image, segment_masks, samples, color):
+    #TODO: Decide if the input should be segment_masks or perturbation masks
     if not issubclass(image.dtype.type, numbers.Integral):
         if isinstance(color[0], numbers.Integral):
             color = np.array(color)/255
 
-    sample_masks = perturbation_masks(segment_masks, samples)
+    sample_masks = perturbation_masks(segment_masks, samples) # TODO: Consider moving pertubation masking outside the pertubation itself
     #perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))#perturbation_masks*image
     #perturbed_segments[sample_masks==0] = color
     perturbed_segments = np.tile(image-color, (sample_masks.shape[0],1,1,1))
@@ -137,6 +144,20 @@ def single_color_pertuber(image, segment_masks, samples, color):
     if isinstance(color[0], numbers.Integral):
         perturbed_segments = perturbed_segments.astype(int, copy=False)
     return perturbed_segments, samples
+
+def replace_image_perturbation(image, replace_image, sample_masks, samples):
+    perturbed = np.tile(image-replace_image, (sample_masks.shape[0],1,1,1))
+    perturbed = (
+        perturbed*sample_masks.reshape(list(sample_masks.shape)+[1])
+    )+replace_image
+    if issubclass(image.dtype.type, numbers.Integral):
+        perturbed = perturbed.astype(int, copy=False)
+    return perturbed, samples
+
+def transform_pertubation(image, transform, sample_masks, samples):
+    return replace_image_perturbation(
+        image, transform(image), sample_masks, samples
+    )
 
 
 def slic_segmenter(image, nbr_segments, compactness):
