@@ -50,8 +50,27 @@ def original_ciu_values(Y, Z, inverse=False, expected_util=0.5):
     influence = importance*(utility-expected_util)
     return importance, utility, influence
 
-def ciu_values(Y, Z):
-    pass
+def ciu_values(Y, Z, expected_util=0.5, return_samples=None):
+    M = Z.shape[1]
+    if return_samples is None:
+        unique_Z = np.unique(Z, axis=0)
+    else:
+        unique_Z = return_samples
+    true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
+    min_importance = np.zeros(unique_Z.shape[0])
+    max_importance = np.zeros(unique_Z.shape[0])
+    min_importance[:] = 10000
+    max_importance[:] = -10000
+    for y, z0 in zip(Y,Z):
+        for i, z1 in enumerate(unique_Z):
+            if np.all(z1*z0 == z1):
+                if min_importance[i] > y: min_importance[i] = y
+                if max_importance[i] < y: max_importance[i] = y
+    importance = (max_importance-min_importance)
+    utility = (true_y - min_importance)/importance
+    importance = importance/(np.max(Y)-np.min(Y))
+    influence = importance*(utility-expected_util)
+    return importance, utility, influence, unique_Z
 
 def shap_values(Y, Z):
     M = Z.shape[1]#torch.tensor(Z.size(dim=1))
