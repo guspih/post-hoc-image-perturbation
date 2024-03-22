@@ -92,6 +92,9 @@ def rise_values(Y, Z):
     return importance/occurance
     #return np.sum(Z*Y[:,None], axis=0)/np.sum(Z, axis=0)
 
+def lstsq_lime_values(Y, Z):
+    return np.linalg.lstsq(Z, Y, rcond=None)
+
 
 def random_sampler(M, sample_size=None, p=0.5):
     if sample_size is None:
