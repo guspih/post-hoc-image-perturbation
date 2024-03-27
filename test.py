@@ -7,6 +7,7 @@ import time
 import warnings
 from skimage.segmentation import slic
 from skimage.transform import resize
+from scipy.ndimage import gaussian_filter
 from PIL import Image
 import numbers
 
@@ -48,7 +49,7 @@ def original_ciu_values(Y, Z, inverse=False, expected_util=0.5):
     if inverse:
         importance = 1-importance
     influence = importance*(utility-expected_util)
-    return importance, utility, influence
+    return importance, utility, influence, np.eye(M)
 
 def ciu_values(Y, Z, expected_util=0.5, return_samples=None):
     M = Z.shape[1]
@@ -79,21 +80,21 @@ def shap_values(Y, Z):
     Z = np.concatenate((Z, torch.ones((Z.shape[0], 1))), axis=1) #torch.cat((Z, torch.ones((Z.size(0), 1))), dim=1)
     S_vals = np.unique(S)
 
-    sqrt_pis = np.sqrt(shap_kernel(M, S_vals))
-    test = np.zeros(np.max(S_vals)+1)
-    test[S_vals] = sqrt_pis
-    sqrt_pis = test[S]
-    #return torch.linalg.lstsq(sqrt_pis.unsqueeze(dim=1) * Z, sqrt_pis * Y)
-    return np.linalg.lstsq(sqrt_pis[:, None] * Z, sqrt_pis * Y, rcond=None)
+    kernel_vals = np.sqrt(shap_kernel(M, S_vals))
+    sqrt_pis = np.zeros(np.max(S_vals)+1)
+    sqrt_pis[S_vals] = kernel_vals
+    sqrt_pis = sqrt_pis[S]
+    shap = np.linalg.lstsq(sqrt_pis[:, None] * Z, sqrt_pis * Y, rcond=None)
+    return shap[0][:-1], shap[0][-1], np.eye(M)
 
 def rise_values(Y, Z):
     importance = np.sum(Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
     occurance = np.sum(Z, axis=0)
-    return importance/occurance
+    return importance/occurance, np.eye(Z.shape[1])
     #return np.sum(Z*Y[:,None], axis=0)/np.sum(Z, axis=0)
 
 def lstsq_lime_values(Y, Z):
-    return np.linalg.lstsq(Z, Y, rcond=None)
+    return np.linalg.lstsq(Z, Y, rcond=None), np.eye(Z.shape[1])
 
 
 def random_sampler(M, sample_size=None, p=0.5):
@@ -147,8 +148,15 @@ def shap_sampler(M, sample_size=None, ignore_warnings=False):
     return samples
 
 
+def fade_segment_masks(segement_masks, sigma, **kwargs):
+    return gaussian_filter(
+        segement_masks, sigma=sigma, axes=range(1,len(segement_masks.shape)),
+        **kwargs
+    )
+
 def perturbation_masks(segment_masks, samples):
     return np.tensordot(samples, segment_masks, axes=(1,0))
+
 
 def single_color_pertuber(image, segment_masks, samples, color):
     #TODO: Decide if the input should be segment_masks or perturbation masks
