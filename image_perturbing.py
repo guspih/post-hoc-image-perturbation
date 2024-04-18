@@ -11,6 +11,7 @@ from skimage.util import random_noise
 from scipy.ndimage import gaussian_filter
 from PIL import Image
 import numbers
+import cv2
 
 
 # Image segmenters
@@ -27,18 +28,10 @@ def slic_segmenter(image, n_segments, compactness, **kwargs):
         [S,H,W] array with masks for each of the S segments
     '''
     segments = slic(
-        image,
-        n_segments=n_segments,
-        compactness=compactness,
-        start_label=0,
+        image, n_segments=n_segments,compactness=compactness, start_label=0,
         **kwargs
     )
-    segment_ids = np.unique(segments)
-    segment_masks = np.zeros(
-        (segment_ids.shape[0],segments.shape[0], segments.shape[1])
-        )
-    for id in segment_ids:
-        segment_masks[id] = np.where(segments==id,1.0,0.0)
+    segment_masks = segments_to_masks(segments)
     return segments, segment_masks
 
 def grid_segmenter(image, h_segments, v_segments, bilinear=False):
@@ -71,6 +64,21 @@ def grid_segmenter(image, h_segments, v_segments, bilinear=False):
 
 
 # Segmentation utilities
+def segments_to_masks(segments):
+    '''
+    Takes a segmented image and creates an array of masks for each segment.
+    Args:
+        segments (array): [H,W] array of pixels labeled by 1 of S segments
+    Returns (array): [S,H,W] array with 0/1 masks for each of the S segments
+    '''
+    segment_ids = np.unique(segments)
+    segment_masks = np.zeros(
+        (segment_ids.shape[0],segments.shape[0], segments.shape[1])
+        )
+    for id in segment_ids:
+        segment_masks[id] = np.where(segments==id,1.0,0.0)
+    return segment_masks
+
 def fade_segment_masks(segement_masks, sigma, **kwargs):
     '''
     Fades segment masks smoothly using scipy.ndimage.gaussian_filter().
