@@ -109,12 +109,12 @@ def perturbation_masks(segment_masks, samples):
 
 
 # Perturbers
-def single_color_perturbation(image, sample_masks, samples, color):
+def single_color_perturbation(image, sample_masks, samples, color=None):
     '''
     Creates perturbed versions of the image by replacing the pixels indicated
     by each perturbation mask with a given color. Pixels to replace indicated
     by 0 and values between 0 and 1 will fade between their current color and
-    the given color.
+    the given color. If color is None, then average image color is used.
     Args:
         image (array): [H,W,C] array with the image to perturb
         sample_masks (array): [N,H,W] array of masks in [0,1]
@@ -124,6 +124,9 @@ def single_color_perturbation(image, sample_masks, samples, color):
         [N,H,W,C] array of perturbed versions of the image
         [N,S] array identical to samples
     '''
+    if color is None:
+        color = np.mean(color, axis=(0,1))
+
     if not issubclass(image.dtype.type, numbers.Integral):
         if isinstance(color[0], numbers.Integral):
             color = np.array(color)/255
@@ -136,7 +139,9 @@ def single_color_perturbation(image, sample_masks, samples, color):
         perturbed_segments = perturbed_segments.astype(int, copy=False)
     return perturbed_segments, samples
 
-def replace_image_perturbation(image, sample_masks, samples, replace_images):
+def replace_image_perturbation(
+    image, sample_masks, samples, replace_images, one_each=False
+):
     '''
     Creates perturbed versions of the image by replacing the pixels indicated
     by each perturbation mask with the corresponding pixel from other images.
@@ -147,20 +152,22 @@ def replace_image_perturbation(image, sample_masks, samples, replace_images):
         sample_masks (array): [N,H,W] array of masks in [0,1]
         samples (array): [N,S] array indicating the perturbed segments
         replace_images (array): [X,H,W,C] array with alternative images
+        one_each (bool): If True, each perturbed image has a given replacement
     Returns (array, array):
         [N*X,H,W,C] array of perturbed versions of the image
         [N*X,S] array indicating which segments have been perturbed
     '''
-    image_is_int = issubclass(image.dtype.type, numbers.Integral)
-    replace_is_int = issubclass(replace_images.dtype.type, numbers.Integral)
-    if image_is_int != replace_is_int:
-        if image_is_int: image = image/255
-        else: replace = replace/255
-    if len(replace_images.shape) == 4:
+    replace_images = cast_image(replace_images, image.dtype.type)
+    if len(replace_images.shape) == 4 and not one_each:
         total_samples = sample_masks.shape[0]*replace_images.shape[0]
-    elif len(replace_images.shape) == 3:
+    elif len(replace_images.shape) == 3 or one_each:
         total_samples = sample_masks.shape[0]
-    perturbed = np.tile(image-replace_images, (total_samples,1,1,1))
+    img_tiles = round(total_samples/replace_images.shape[0])
+    sample_reps = round(total_samples/sample_masks.shape[0])
+    replace_images = np.tile(replace_images, (img_tiles,1,1,1))
+    perturbed = image-replace_images
+    sample_masks = np.repeat(sample_masks, sample_reps, axis=0)
+    print(perturbed.shape, sample_masks.shape, replace_images.shape)
     perturbed = (
         perturbed*sample_masks.reshape(list(sample_masks.shape)+[1])
     )+replace_images
@@ -188,4 +195,56 @@ def transform_perturbation(image, sample_masks, samples, transform, **kwargs):
         image, sample_masks, samples, replace_images=transform(image,**kwargs)
     )
 
+def cv2_inpaint_perturbation(
+    image, sample_masks, samples, radius=1, method='telea'
+):
+    '''
+    Creates perturbed versions of the image by inpainting the pixels indicated
+    by 0 using either of the two inpainting methods implemented by OpenCV.
+    Args:
+        image (array): [H,W,C] array with the image to perturb
+        sample_masks (array): [N,H,W] array of masks in [0,1]
+        samples (array): [N,S] array indicating the perturbed segments
+        radius (int): The radius around the masked pixels to also be inpainted
+        method (str): The inpainting method, either "telea" or "bertalmio"
+    Returns (array, array):
+        [N,H,W,C] array of perturbed versions of the image
+        [N,S] array identical to samples
+    '''
+    dtype = image.dtype.type
+    image = cast_image(image, np.uint8)
+    sample_masks = 1-sample_masks.round().astype(np.uint8)
+    if method == 'telea':
+        flags = cv2.INPAINT_TELEA
+    elif method == 'bertalmio':
+        flags = cv2.INPAINT_NS
+    else:
+        raise ValueError(
+            f'method has to be "telea" or "bertalmio", but {method} was given.'
+        )
+    perturbed_images = np.zeros(list(sample_masks.shape)+[3], dtype=np.uint8)
+    for i, mask in enumerate(sample_masks):
+        perturbed_image = cv2.inpaint(image, mask, radius, flags)
+        perturbed_images[i] = perturbed_image
+    perturbed_image = cast_image(perturbed_image, dtype)
+    return perturbed_images, samples
 
+
+# Image handling utilities
+def cast_image(image, dtype):
+    '''
+    Casts an image from one numpy dtype to another. Integer dypes has RGB 
+    values from 0 to 255 and Fractional dtypes has values from 0.0 to 1.0
+    Args:
+        image (array): [H,W,C] array with the image to cast
+        dtype (dtype): The numpy datatype to cast the image to
+    Returns (array): [H,W,C] array with the image in the given dtype format
+    '''
+    image_is_int = issubclass(image.dtype.type, numbers.Integral)
+    image_max_val = np.max(image)
+    dtype_is_int = issubclass(dtype, numbers.Integral)
+    if dtype_is_int == (image_is_int or image_max_val>1.0):
+        return image.astype(dtype)
+    if dtype_is_int:
+        return (image*255).round().astype(dtype) 
+    return (image/255).astype(dtype)
