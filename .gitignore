@@ -1,3 +1,12 @@
+# Subfolders
+images/
+datasets/
+logs/
+
+# Files to ignore
+api_keys.csv
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
