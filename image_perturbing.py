@@ -162,12 +162,15 @@ def replace_image_perturbation(
         total_samples = sample_masks.shape[0]*replace_images.shape[0]
     elif len(replace_images.shape) == 3 or one_each:
         total_samples = sample_masks.shape[0]
+        if len(replace_images.shape) == 3:
+            replace_images=replace_images.reshape(
+                [1]+list(replace_images.shape)
+            )
     img_tiles = round(total_samples/replace_images.shape[0])
     sample_reps = round(total_samples/sample_masks.shape[0])
     replace_images = np.tile(replace_images, (img_tiles,1,1,1))
     perturbed = image-replace_images
     sample_masks = np.repeat(sample_masks, sample_reps, axis=0)
-    print(perturbed.shape, sample_masks.shape, replace_images.shape)
     perturbed = (
         perturbed*sample_masks.reshape(list(sample_masks.shape)+[1])
     )+replace_images
@@ -229,11 +232,64 @@ def cv2_inpaint_perturbation(
     perturbed_image = cast_image(perturbed_image, dtype)
     return perturbed_images, samples
 
+def color_histogram_perturbation(image, sample_masks, samples, nr_bins=8):
+    '''
+    Creates perturbed versions of the image by replacing the pixels indicated
+    by each perturbation mask with the median color of one bins of a histogram
+    of the image chosen randomly weighted by the size of the bins. Pixels to
+    replace indicated by 0 and values between 0 and 1 will fade between the
+    color of the corresponding pixels.
+    Args:
+        image (array): [H,W,C] array with the image to perturb
+        sample_masks (array): [N,H,W] array of masks in [0,1]
+        samples (array): [N,S] array indicating the perturbed segments
+        nr_bins (int): The number of bins to split each color channel into
+    Returns (array, array):
+        [N*X,H,W,C] array of perturbed versions of the image
+        [N*X,S] array indicating which segments have been perturbed
+    '''
+    if issubclass(image.dtype.type, numbers.Integral):
+        color_max = 255
+    else:
+        color_max = 1.0
+    bin_edges = np.linspace(0, color_max, nr_bins+1)[1:-1]
+    flat_image = image.reshape(-1,3)
+    pixel_bins = np.array([
+        np.digitize(channel, bin_edges) for channel in flat_image.T
+    ]).T
+    bins = {}
+    for pixel, bin in zip(flat_image,pixel_bins):
+        bin = tuple(bin)
+        if not bin in bins:
+            bins[bin] = pixel.reshape((1,3))
+        else:
+            bins[bin] = np.append(bins[bin], pixel.reshape((1,3)), axis=0)
+    bin_medians = []
+    bin_probs = []
+    for bin, colors in bins.items():
+        bin_medians.append(np.median(colors, axis=0))
+        bin_probs.append(colors.shape[0]/(image.shape[0]*image.shape[1]))
+    bin_medians = np.array(bin_medians)
+    replace_colors = bin_medians[np.random.choice(
+        range(len(bin_medians)), sample_masks.shape[0], p=bin_probs
+    )]
+    replace_colors = np.reshape(replace_colors, (sample_masks.shape[0],1,1,3))
+    print(((0,0),(0,image.shape[0]-1),(0,image.shape[1]-1),(0,0)))
+    replace_colors = np.pad(
+        replace_colors,
+        ((0,0),(0,image.shape[0]-1),(0,image.shape[1]-1),(0,0)), 'edge'
+    )
+    return replace_image_perturbation(
+        image, sample_masks, samples, replace_colors, one_each=True
+    )
+
+
+
 
 # Image handling utilities
 def cast_image(image, dtype):
     '''
-    Casts an image from one numpy dtype to another. Integer dypes has RGB 
+    Casts an image from one numpy dtype to another. Integer dtypes has RGB 
     values from 0 to 255 and Fractional dtypes has values from 0.0 to 1.0
     Args:
         image (array): [H,W,C] array with the image to cast
