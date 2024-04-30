@@ -237,6 +237,50 @@ def lstsq_lime_values(Y, Z):
     '''
     return np.linalg.lstsq(Z, Y, rcond=None)[0][:-1], np.eye(Z.shape[1])
 
+def pda_values(Y, Z, divide_weight=False, mode='probdiff', c=1000, n=1281167):
+    '''
+    Estimates the prediction difference analysis of each feature by calculating
+    the difference between the true prediction and the average prediction when
+    each feature is perturbed. Assumes probability predictions in range [0,1].
+    Mode 'probdiff' uses the difference directly, 'infodiff' the difference
+    between log2(probability), and 'evidence' the difference between
+    log2(probability/(1-probability)).
+        Y (array): [N] array of all model values for the perturbed inputs
+        Z (array): [N,M] array indicating which features were perturbed (0)
+        divide_weight (bool): If True, weight of Y[n] is 1/sum(Z[n])
+        mode (str): PDA mode to use ('probdiff', 'infodiff', 'evidence')
+        c (int): #classes in Laplace correction of infodiff and evidence
+        n (int): Size of training set for correction of infodiff and evidence
+    Returns (array, float, array):
+        [M] array with the attribution of each feature as the surrogate weights
+        [M,M] array indicating which feature each attribution scores belong to
+    '''
+    modes = ['probdiff','evidence','infodiff']
+    if not mode in modes:
+        raise ValueError(f'variant has to be one of {modes} but got {mode}')
+    M = Z.shape[1]
+    max_Y = np.max(Y)
+    if max_Y > 1.0: #TODO: Consider removing
+        Y = Y/max_Y
+    true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
+    Z = 1-Z
+    if divide_weight:
+        Z = Z/np.sum(Z, axis=1).reshape(-1,1)
+    relevance = np.sum(Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
+    weight = np.sum(Z, axis=0)
+    avg_relevance = relevance/weight
+    if not mode == 'probdiff':
+        true_y = (true_y*n+1)/(n+c)
+        avg_relevance = (avg_relevance*n+1)/(n+c)
+        if mode == 'evidence':
+            true_y = true_y/(1-true_y)
+            avg_relevance = avg_relevance/(1-avg_relevance)
+        true_y = np.log2(true_y)
+        avg_relevance = np.log2(avg_relevance)
+    if len(true_y) == 0: #TODO: Consider removing
+        true_y = 0
+    return true_y-avg_relevance, np.eye(M)
+
 
 # Explainer utils
 def shap_kernel(M, s):
