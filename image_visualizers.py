@@ -16,32 +16,52 @@ from image_perturbers import SingleColorPerturber, ReplaceImagePerturber, cast_i
 from image_segmenters import perturbation_masks
 
 class TopVisualizer():
-    def __init__(self, k=None, p=None, treshold=None, perturber=None):
+    def __init__(
+        self, k=None, p=None, percent=None, treshold=None, perturber=None
+    ):
         self.perturber = perturber
         if perturber is None:
             self.perturber = SingleColorPerturber((190,190,190))
-        if (k is None) + (p is None) + (treshold is None) != 2:
-            raise ValueError('Exactly one of k, p, and treshold should be set')
+        if (k is None)+(p is None)+(percent is None)+(treshold is None) != 3:
+            raise ValueError(
+                'Exactly one of k, p, percent, and treshold should be set'
+            )
         self.k = k
         self.p = p
+        self.percent = percent
         self.treshold = treshold
         if not k is None:
             self.mode = 'k'
         elif not p is None:
             self.mode = 'p'
+        elif not percent is None:
+            self.mode = 'percent'
         else:
             self.mode = 'treshold'
 
     def __call__(self, values, image, segment_masks, pixel_mask=None):
         nr_segments = values.shape[0]
         to_perturb = np.ones((1,nr_segments))
-        if self.mode != 'threshold':
-            if self.mode == 'p':
-                self.k = int(np.ceil(self.p*nr_segments))
+        if self.mode in ['percent', 'k']:
+            if self.mode == 'percent':
+                self.k = int(np.ceil(self.percent*nr_segments))
             top_order = values.argsort()
             to_perturb[0, top_order[:-self.k]] = 0
-        else:
+        elif self.mode == 'treshold':
             to_perturb[0, values>self.treshold] = 0
+        else:
+            values = values-np.min(values)
+            values = values/np.sum(values)
+            top_order = values.argsort()
+            top_values = values[top_order]
+            total_value = 0
+            for i, val in enumerate(top_values[::-1]):
+                total_value+=val
+                if total_value > self.p:
+                    break
+            to_perturb[0, top_order[:-(i+1)]] = 0
+
+
         distortion_mask = perturbation_masks(segment_masks, to_perturb)
         perturbed_image = self.perturber(image, distortion_mask, to_perturb)[0]
         return perturbed_image[0]
