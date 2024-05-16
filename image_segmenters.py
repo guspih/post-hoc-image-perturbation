@@ -1,17 +1,6 @@
-import torch
-import itertools
-import shap
 import numpy as np
-import scipy.special
-import time
-import warnings
-from skimage.segmentation import slic
 from skimage.transform import resize
-from skimage.util import random_noise
 from scipy.ndimage import gaussian_filter
-from PIL import Image
-import numbers
-import cv2
 
 
 # Image segmenters
@@ -98,7 +87,7 @@ class FadeMaskTransformer():
             segment_masks (array): [S,H,W] array with S segment masks to fade
             **kwargs: Additional arguments for scipy.ndimage.gaussian_filter
         Returns (array): [S,H,W] array of segment masks faded between 0 and 1
-    '''
+        '''
         return gaussian_filter(
             segement_masks, sigma=self.sigma,
             axes=range(1,len(segement_masks.shape)), **self.kwargs, **kwargs

@@ -1,15 +1,6 @@
-import torch
 import itertools
-import shap
 import numpy as np
-import scipy.special
-import time
 import warnings
-from skimage.segmentation import slic
-from skimage.transform import resize
-from scipy.ndimage import gaussian_filter
-from PIL import Image
-import numbers
 
 
 class RandomSampler():

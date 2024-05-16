@@ -1,15 +1,6 @@
 import torch
-import itertools
-import shap
 import numpy as np
 import scipy.special
-import time
-import warnings
-from skimage.segmentation import slic
-from skimage.transform import resize
-from scipy.ndimage import gaussian_filter
-from PIL import Image
-import numbers
 
 
 # Attributers (Explainers that calculates attribution)
@@ -211,7 +202,6 @@ class PDAAttributer():
             [M] array with the PDA values of each feature
             [M,M] array mapping attribution scores to features
         '''
-
         M = Z.shape[1]
         max_Y = np.max(Y)
         if max_Y > 1.0: #TODO: Consider removing

@@ -1,17 +1,6 @@
-import torch
-import itertools
-import shap
 import numpy as np
-import scipy.special
-import time
-import warnings
-from skimage.segmentation import slic
-from skimage.transform import resize
-from scipy.ndimage import gaussian_filter
-from PIL import Image
-import numbers
 
-from image_perturbers import SingleColorPerturber, ReplaceImagePerturber, cast_image
+from image_perturbers import SingleColorPerturber
 from image_segmenters import perturbation_masks
 
 #Evaluators
