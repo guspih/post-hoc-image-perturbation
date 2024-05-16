@@ -194,14 +194,14 @@ class ColorHistogramPerturber():
         for pixel, bin in zip(flat_image,pixel_bins):
             bin = tuple(bin)
             if not bin in bins:
-                bins[bin] = pixel.reshape((1,3))
+                bins[bin] = [pixel]
             else:
-                bins[bin] = np.append(bins[bin], pixel.reshape((1,3)), axis=0)
+                bins[bin].append(pixel)
         bin_medians = []
         bin_probs = []
         for bin, colors in bins.items():
             bin_medians.append(np.median(colors, axis=0))
-            bin_probs.append(colors.shape[0]/(image.shape[0]*image.shape[1]))
+            bin_probs.append(len(colors)/(image.shape[0]*image.shape[1]))
         bin_medians = np.array(bin_medians)
         replace_colors = bin_medians[np.random.choice(
             range(len(bin_medians)), sample_masks.shape[0], p=bin_probs
