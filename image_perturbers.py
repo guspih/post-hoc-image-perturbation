@@ -9,12 +9,24 @@ class SingleColorPerturber():
     Creates perturbed versions of the image by replacing the pixels indicated
     by each perturbation mask with a given color. Pixels to replace indicated
     by 0 and values between 0 and 1 will fade between their current color and
-    the given color. If color is None, then average image color is used.
+    the given color. If color is 'mean' or 'median' the color is instead chosen
+    as the mean or median of the image.
     Args:
-        color (float,float,float): The color to replace pixels by in RGB
+        color (float,float,float): The color to replace pixels or mean/median
     '''
-    def __init__(self, color=None):
-        self.color = color
+    def __init__(self, color='mean'):
+        if isinstance(color, str):
+            self.color = color
+            if color == 'mean':
+                self.get_color = lambda x: np.array(np.mean(x, axis=(0,1)))
+            elif color == 'median':
+                self.get_color = lambda x: np.array(np.median(x, axis=(0,1)))
+            else:
+                raise ValueError(
+                    f'color must be RGB, "mean", or "median" but got {color}'
+                )
+        else:
+            self.color = np.array(color)
 
     def __call__(self, image, sample_masks, samples):
         '''
@@ -27,19 +39,15 @@ class SingleColorPerturber():
             [N,S] array identical to samples
         '''
         color = self.color
-        if color is None:
-            color = np.mean(color, axis=(0,1))
+        if isinstance(color, str):
+            color = self.get_color(image)
 
-        if not issubclass(image.dtype.type, numbers.Integral):
-            if isinstance(color[0], numbers.Integral):
-                color = np.array(color)/255
+        color = cast_image(color, image.dtype.type)
 
         perturbed_segments = np.tile(image-color, (sample_masks.shape[0],1,1,1))
         perturbed_segments = (
             perturbed_segments*sample_masks.reshape(list(sample_masks.shape)+[1])
         )+color
-        if isinstance(color[0], numbers.Integral):
-            perturbed_segments = perturbed_segments.astype(int, copy=False)
         return perturbed_segments, samples
 
 class ReplaceImagePerturber():
@@ -68,7 +76,7 @@ class ReplaceImagePerturber():
             [N*X,H,W,C] array of perturbed versions of the image
             [N*X,S] array indicating which segments have been perturbed
         '''
-        if self.replace_images is None:
+        if not replace_images is None:
             return replace_image_perturbation(
                 image, sample_masks, samples, replace_images, self.one_each
             )
@@ -198,13 +206,52 @@ class ColorHistogramPerturber():
         replace_colors = np.reshape(
             replace_colors, (sample_masks.shape[0],1,1,3)
         )
-        replace_colors = np.pad(
-            replace_colors,
-            ((0,0),(0,image.shape[0]-1),(0,image.shape[1]-1),(0,0)), 'edge'
-        )
-        return replace_image_perturbation(
-            image, sample_masks, samples, replace_colors, one_each=True
-        )
+        perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))-replace_colors
+        perturbed_segments = (
+            perturbed_segments*sample_masks.reshape(list(sample_masks.shape)+[1])
+        )+replace_colors
+        return perturbed_segments, samples
+
+class RandomColorPerturber():
+    '''
+    Creates perturbed versions of the image by replacing the pixels indicated
+    by each mask with a randomly drawn color. Pixels to replace indicated by 0
+    and values between 0 and 1 will fade between their current color and the
+    drawn color. Colors are drawn by selecting a random pixel or uniformly from
+    the RGB domain. The perturbed images can use the same color or one each.
+    Args:
+        uniform_rgb (bool): Whether to draw the random color uniformly from RGB
+        draw_for_each (bool): Whether to randomize a color for each 
+    '''
+    def __init__(self, uniform_rgb=False, draw_for_each=False):
+        self.uniform_rgb = uniform_rgb
+        self.draw_for_each = draw_for_each
+    
+    def __call__(self, image, sample_masks, samples):
+        '''
+        Args:
+            image (array): [H,W,C] array with the image to perturb
+            sample_masks (array): [N,H,W] array of masks in [0,1]
+            samples (array): [N,S] array indicating the perturbed segments
+        Returns (array, array):
+            [N,H,W,C] array of perturbed versions of the image
+            [N,S] array identical to samples
+        ''' 
+        if self.draw_for_each:
+            nr = sample_masks.shape[0]
+        else:
+            nr = 1
+        if self.uniform_rgb:
+            color = np.random.random_sample(size=(nr,1,1,3))
+            color = cast_image(color, image.dtype.type)
+        else:
+            color = np.random.randint(0, image.shape[0]*image.shape[1], nr)
+            color = (image.reshape(-1,3)[color]).reshape((nr,1,1,3))
+        perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))-color
+        perturbed_segments = (
+            perturbed_segments*sample_masks.reshape(list(sample_masks.shape)+[1])
+        )+color
+        return perturbed_segments, samples
 
 
 # Image handling utilities
