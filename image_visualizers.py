@@ -41,36 +41,41 @@ class TopVisualizer():
         else:
             self.mode = 'treshold'
 
-    def __call__(self, values, image, segment_masks, pixel_mask=None):
+    def __call__(self, vals, image, masks=None):
         '''
         Args:
             values (array): [S] array of attribution scores per segment
             image (array): Image to visualize attribution for of shape [H,W,C]
-            segment_masks (array): [S,H,W] array of 0/1 masks for the segments
-            pixel_mask (array): [H,W] array of attributions per pixel (unused)
+            masks (array): [S,H,W] array of 0/1 masks for the segments
         Returns (array): [H,W,C] array visualizing the attribution on the image
         '''
-        nr_segments = values.shape[0]
-        to_perturb = np.ones((1,nr_segments))
+        if len(vals.shape) == 3:
+            vals = np.squeeze(vals, axis=0)
+        shape = vals.shape
+        vals = vals.reshape(-1)
+        to_perturb = np.ones((1,vals.size))
         if self.mode in ['percent', 'k']:
             if self.mode == 'percent':
-                self.k = int(np.ceil(self.percent*nr_segments))
-            top_order = values.argsort()
+                self.k = int(np.ceil(self.percent*vals.size))
+            top_order = vals.argsort()
             to_perturb[0, top_order[:-self.k]] = 0
         elif self.mode == 'treshold':
-            to_perturb[0, values>self.treshold] = 0
+            to_perturb[0, vals>self.treshold] = 0
         else:
-            values = values-np.min(values)
-            values = values/np.sum(values)
-            top_order = values.argsort()
-            top_values = values[top_order]
+            vals = vals-np.min(vals)
+            vals = vals/np.sum(vals)
+            top_order = vals.argsort()
+            top_values = vals[top_order]
             total_value = 0
             for i, val in enumerate(top_values[::-1]):
                 total_value+=val
                 if total_value > self.p:
                     break
             to_perturb[0, top_order[:-(i+1)]] = 0
-        distortion_mask = perturbation_masks(segment_masks, to_perturb)
+        if masks is None:
+            distortion_mask = to_perturb.reshape(*shape)
+        else:
+            distortion_mask = perturbation_masks(masks, to_perturb)
         perturbed_image = self.perturber(image, distortion_mask, to_perturb)[0]
         return perturbed_image[0]
 
@@ -94,19 +99,18 @@ class HeatmapVisualizer():
         self.colormap = colormap
         self.invert_colormap = invert_colormap
 
-    def __call__(self, values, image, segment_masks, pixel_mask=None):
+    def __call__(self, vals, image, masks=None):
         '''
         Args:
-            values (array): [S] array of attribution scores per segment
+            values (array): Array of attribution scores
             image (array): Image to visualize attribution for of shape [H,W,C]
-            segment_masks (array): [S,H,W] array of 0/1 masks for the segments
-            pixel_mask (array): [H,W] array of attributions per pixel (unused)
+            masks (array): [S,H,W] array of 0/1 masks for the segments
         Returns (array): [H,W,C] array visualizing the attribution on the image
         '''
-        if pixel_mask is None:
-            heatmap = perturbation_masks(segment_masks, values.reshape((1,-1)))
+        if masks is None:
+            heatmap = vals
         else:
-            heatmap = pixel_mask
+            heatmap = perturbation_masks(masks, vals.reshape((1,-1)))
         if len(heatmap.shape) == 3:
             heatmap = heatmap[0]
         if self.normalize:
