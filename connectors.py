@@ -14,7 +14,7 @@ class SegmentationAttribuitionPipeline():
         perturber (callable): Return [N,H,W,C], [N,S] perturbed images, samples
         explainer (callable): Calculates attribution based on perturbation
         mask_transform (callable): Return [S,H,W] transformed masks
-        per_pixel (bool): Whether to return [O,H,W] the attribution per pixel
+        per_pixel (bool): Whether to also return a map of attribution per pixel
     '''
     def __init__(
         self, segmenter, sampler, perturber, explainer, mask_transform=None,
@@ -39,7 +39,9 @@ class SegmentationAttribuitionPipeline():
             image (array): the [H,W,C] image to explain via attribution
             model (callable): The prediction model returning [N,O] for output O
             sample_size (int): The nr N of perturbed images to use to attribute
-        Returns: Output of explainer for each output O, or [O,H,W] if per_pixel
+        Returns (Any, (array, optional)): 
+            List of explainer outputs for each model output O
+            List of [H,W] maps of attribution per pixel (if self.per_pixel)
         '''
         segments, self.masks = self.segmenter(image)
         if not self.mask_transform is None:
@@ -58,7 +60,8 @@ class SegmentationAttribuitionPipeline():
             self.ys = np.expand_dims(self.ys, axis=-1)
         ret = [self.explainer(y, perturbed_samples) for y in self.ys.T]
         if self.per_pixel:
-            ret = [perturbation_masks(
-                    values[-2], self.transformed_masks
+            pixel_map = [perturbation_masks(
+                    self.transformed_masks, values[-2].reshape((1,-1))
                 ) for values in ret]
+            return ret, pixel_map
         return ret
