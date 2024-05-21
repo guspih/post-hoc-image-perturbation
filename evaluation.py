@@ -61,8 +61,6 @@ class ImageAUCEvaluator():
             scores.append(np.mean(ys, axis=0)[model_idxs])
         if self.mode == 'srg':
             scores.append(scores[0]-scores[1])
-        if masks is None:
-            return scores, curves, perturbed_images
         if self.return_curves:
             return scores, curves
         return scores
