@@ -122,4 +122,5 @@ def perturbation_masks(segment_masks, samples):
         samples (array): [N,S] array with 0 indicating the segments to perturb
     Returns (array): [N,H,W] array of masks in [0,1] (lower=more perturbation)
     '''
-    return np.tensordot(samples, segment_masks, axes=(1,0))
+    distortion_masks = np.tensordot(samples, segment_masks, axes=(1,0))
+    return distortion_masks/np.sum(segment_masks, axis=0)
