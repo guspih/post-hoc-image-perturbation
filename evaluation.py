@@ -6,26 +6,28 @@ from image_segmenters import perturbation_masks
 #Evaluators
 class ImageAUCEvaluator():
     '''
-    Evaluates an image segment attribution through calculating the area under
-    the insertion/deletion curve by inserting/deleting segments starting with
-    the most attributed and ending with the last. Can also calculate the SRG
-    score which is the difference between the insertion and deletion scores.
-    Returns the area for the given mode or insertion, deletion, and SRG area
-    if mode is SRG.
+    Evaluates an image attribution through calculating the area under the
+    deletion curve by deleting pixels/segments from most to least attributed
+    (mif) or deleting the least attributed first (lif). Can also calculate both
+    and return the difference between them (srg).
     Args:
-        mode (str): Which score to calculate (insertion, deletion, srg)
+        mode (str): Which score to calculate. 'mif'/'lif' are included in 'srg'
         perturber (callable): Perturber used to remove the segments
         return_curves (bool): Whether to also return the model outputs
+        normalize (bool): Whether to normalize so the curve goes from 1 to 0
     '''
-    def __init__(self, mode='srg', perturber=None, return_curves=False):
-        self.delete = []
-        if mode != 'deletion':
-            self.delete.append(False)
-        if mode != 'insertion':
-            self.delete.append(True)
+    def __init__(
+        self, mode='srg', perturber=None, return_curves=False, normalize=False
+    ):
+        self.mif = []
+        if mode != 'mif':
+            self.mif.append(False)
+        if mode != 'lif':
+            self.mif.append(True)
         self.mode = mode
         self.perturber = perturber
         self.return_curves = return_curves
+        self.normalize = normalize
         if perturber is None:
             self.perturber = SingleColorPerturber((190,190,190))
 
@@ -40,13 +42,14 @@ class ImageAUCEvaluator():
             masks (array): [S,H,W] array of segment masks (None=vals per pixel)
             sample_size (int): How many perturbed images to generate
             model_idxs (index): Index for the model outputs to use
-        Returns (array, (array,optional)):
-            [O,P] array of AUC for model outputs O and J=3 if mode==srg else 1
+        Returns ([array], ([array],optional)):
+            List of [O] arrays of AUC for O model outputs for each score
+            List of [sample_size, O] arrays with all model outputs
         '''
         scores = []
         curves = []
-        for delete in self.delete:
-            samples = auc_sampler(vals, sample_size, delete)
+        for mif in self.mif:
+            samples = auc_sampler(vals, sample_size, mif)
             if not masks is None:
                 distortion_masks = perturbation_masks(masks, samples)
             else:
@@ -54,11 +57,14 @@ class ImageAUCEvaluator():
             perturbed_images, perturbed_samples = self.perturber(
                 image, distortion_masks, samples
             )
-            ys = model(perturbed_images)
-            if len(ys.shape)==1:
+            ys = model(perturbed_images)[model_idxs]
+            if len(ys.shape) == 1:
                 ys = np.expand_dims(ys, axis=-1)
-            curves.append(ys[model_idxs])
-            scores.append(np.mean(ys, axis=0)[model_idxs])
+            if self.normalize:
+                ys = ys-ys[-1]
+                ys = ys/ys[0]
+            curves.append(ys)
+            scores.append(np.mean(ys, axis=0))
         if self.mode == 'srg':
             scores.append(scores[0]-scores[1])
         if self.return_curves:
@@ -87,15 +93,17 @@ class PointingGameEvaluator():
         return np.mean(hit_mask[np.max(vals) == vals])
 
 # Evaluation samplers
-def auc_sampler(vals, sample_size=None, deletion=False):
+def auc_sampler(vals, sample_size=None, mif=False):
     '''
-    Creates an array of samples where each following sample has more inserted
-    or deleted samples than the preceeding one. The most influential features,
-    as determined by a given attribution array, is inserted or deleted first.
+    Creates an array of samples where each following sample has more deleted
+    features than the preceeding one. The most or least influential features,
+    as determined by a given attribution array, are deleted first. Deleting
+    the least influential fisrst (lif) is equivalent to inserting the most 
+    influential first (insertion score).
     Args:
         vals (array): The attribution scores of the different features
         sample_size (int): Nr of samples to generate (<=len(vals))
-        deletion (bool): If True, samples are steadily deleted, else inserted
+        mif (bool): If True, the most influential feature is deleted first
     Returns (array): [sample_size, *vals.shape] array indexing what to perturb
     '''
     if sample_size is None:
@@ -109,17 +117,14 @@ def auc_sampler(vals, sample_size=None, deletion=False):
         vals = np.squeeze(vals, axis=0)
     shape = vals.shape
     vals = vals.reshape(-1)
-    indices = np.argsort(vals)[::-1]
-    if deletion:
-        point = 0
-        samples = np.ones((sample_size, vals.size))
-    else:
-        point = 1
-        samples = np.zeros((sample_size, vals.size))
+    indices = np.argsort(vals)
+    if mif:
+        indices = indices[::-1]
+    samples = np.ones((sample_size, vals.size))
     old_j=0
     for n, i in enumerate(np.linspace(0,vals.size, sample_size)):
         j = round(i)
         idxs = indices[old_j:j]
-        samples[n:, idxs] = point
+        samples[n:, idxs] = 0
         old_j = j
     return samples.reshape(sample_size, *shape)
