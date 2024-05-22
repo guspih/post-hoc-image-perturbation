@@ -65,12 +65,26 @@ class ImageAUCEvaluator():
             return scores, curves
         return scores
 
-#class PointingGameEvaluator():
-#    def __init__():
-#        pass
-#
-#    def __call__():
-
+class PointingGameEvaluator():
+    '''
+    Calculates the Pointing Game score of an attribution as the fraction of the
+    most attributed pixels that lie within the ground truth segmentation.
+    '''
+    def __call__(self, hit_mask, vals, masks=None):
+        '''
+        Args:
+            hit_mask (array): [H,W] array of true segmentations of the image
+            vals (array): Array of attribution scores for each image feature
+            masks (array): [S,H,W] array of segment masks (None=vals per pixel)
+        Returns (float): The Pointing Game score of the attribution
+        '''
+        if not masks is None:
+            vals = perturbation_masks(masks, vals)
+        if len(vals.shape) == 3:
+            vals = np.squeeze(vals, axis=0)
+        vals = vals.reshape(-1)
+        hit_mask = hit_mask.reshape(-1)
+        return np.mean(hit_mask[np.max(vals) == vals])
 
 # Evaluation samplers
 def auc_sampler(vals, sample_size=None, deletion=False):
