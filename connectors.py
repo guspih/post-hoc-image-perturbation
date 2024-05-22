@@ -2,7 +2,7 @@ import numpy as np
 
 from image_segmenters import perturbation_masks
 
-class SegmentationPerturbationPipeline():
+class SegmentationPredictionPipeline():
     '''
     Creates an image perturbation pipeline that automatically performs and
     connects segmentation, sampling, perturbing, and model prediction.
@@ -68,7 +68,7 @@ class SegmentationAttribuitionPipeline():
         self.per_pixel = per_pixel
 
         # Reuse SegmentationPerturbationPipeline
-        self.perturbation_pipeline = SegmentationPerturbationPipeline(
+        self.perturbation_pipeline = SegmentationPredictionPipeline(
             segmenter, sampler, perturber
         )
 
