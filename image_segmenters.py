@@ -24,10 +24,11 @@ class WrapperSegmenter():
         Returns (array, array): 
             [H,W] array of segment indices
             [S,H,W] array with masks for each of the S segments
+            [S,H,W] array with masks for each of the S segments
         '''
         segments = self.segmenter(image, **self.kwargs, **kwargs)
         segment_masks = segments_to_masks(segments)
-        return segments, segment_masks
+        return segments, segment_masks, segment_masks
 
 class GridSegmenter():
     '''
@@ -50,8 +51,8 @@ class GridSegmenter():
         Returns (array, array): 
             [H,W] array of segment indices
             [S,H,W] array with masks for each of the S segments
+            [S,H,W] array with masks for each of the S segments
         '''
-
         h_size, v_size = image.shape[0:2]
         segments = np.arange(self.h_nr*self.v_nr).reshape(self.h_nr, self.v_nr)
         segments = resize(
@@ -65,33 +66,38 @@ class GridSegmenter():
             segment_masks, (self.h_nr*self.v_nr,h_size,v_size), mode='reflect',
             order=1 if self.bilinear else 0, anti_aliasing=False
         )
-        return segments, segment_masks
+        return segments, segment_masks, segment_masks
 
-
-# Segment mask transforms
-class FadeMaskTransformer():
+class FadeMaskSegmenter():
     '''
-    Fades segment masks smoothly using scipy.ndimage.gaussian_filter().
+    Segments an image using the wrapped segmenter and then smoothens the edges
+    of the segmentation masks by applying a gaussian filter. The faded masks
+    have values between 0 and 1 indicating the strength of pertubation to use.
     Args:
+        segmenter (callable): Segments the image into segment masks
         sigma (float/(float,float)): St.dev.(s) for the gaussian filter
         **kwargs: Additional arguments for scipy.ndimage.gaussian_filter
-    Returns (array): [S,H,W] array of segment masks faded between 0 and 1
     '''
-    def __init__(self, sigma, **kwargs):
+    def __init__(self, segmenter, sigma, **kwargs):
+        self.segmenter = segmenter
         self.sigma = sigma
         self.kwargs = kwargs
     
-    def __call__(self, segement_masks, **kwargs):
+    def __call__(self, image, **kwargs):
         '''
         Args:
-            segment_masks (array): [S,H,W] array with S segment masks to fade
-            **kwargs: Additional arguments for scipy.ndimage.gaussian_filter
-        Returns (array): [S,H,W] array of segment masks faded between 0 and 1
+            image (array): The image to segment as an array of shape [H,W,C]
+        Returns (array, array): 
+            [H,W] array of segment indices
+            [S,H,W] array with masks for each of the S segments
+            [S,H,W] array with masks for each of the S segments
         '''
-        return gaussian_filter(
-            segement_masks, sigma=self.sigma,
-            axes=range(1,len(segement_masks.shape)), **self.kwargs, **kwargs
+        segments, segment_masks, transformed_masks = self.segmenter(image)
+        transformed_masks = gaussian_filter(
+            transformed_masks, sigma=self.sigma,
+            axes=range(1,len(transformed_masks.shape)), **self.kwargs, **kwargs
         )
+        return segments, segment_masks, transformed_masks
 
 
 # Segmentation utilities
