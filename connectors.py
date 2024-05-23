@@ -68,7 +68,7 @@ class SegmentationAttribuitionPipeline():
         self.per_pixel = per_pixel
 
         # Reuse SegmentationPerturbationPipeline
-        self.perturbation_pipeline = SegmentationPredictionPipeline(
+        self.prediction_pipeline = SegmentationPredictionPipeline(
             segmenter, sampler, perturber
         )
 
@@ -81,7 +81,7 @@ class SegmentationAttribuitionPipeline():
         '''
         if attr in self.__dict__:
             return self.__dict__[attr] 
-        return getattr(self.perturbation_pipeline, attr)
+        return getattr(self.prediction_pipeline, attr)
 
     def __call__(self, image, model, sample_size=None):
         '''
@@ -93,13 +93,13 @@ class SegmentationAttribuitionPipeline():
             List of explainer outputs for each model output O
             List of [H,W] maps of attribution per pixel (if self.per_pixel)
         '''
-        self.ys, perturbed_samples = self.perturbation_pipeline(
+        self.ys, perturbed_samples = self.prediction_pipeline(
             image, model, sample_size
         )
         ret = [self.explainer(y, perturbed_samples) for y in self.ys.T]
         if self.per_pixel:
             pixel_map = [perturbation_masks(
-                    self.perturbation_pipeline.transformed_masks,
+                    self.prediction_pipeline.transformed_masks,
                     values[-2].reshape((1,-1))
                 ) for values in ret]
             return ret, pixel_map
