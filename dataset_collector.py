@@ -197,7 +197,9 @@ def imagenet1K2012_collector(split='train', **kwargs):
         'val': 50000,
         'test_v10102019': 100000
     }
-    if len(os.listdir(root_folder/f'IMAGENET1K2012/{split}')) < length[split]:
+    if sum(
+        [len(f) for r,d,f in os.walk(root_folder/f'IMAGENET1K2012/{split}')]
+    ) < length[split]:
         files = ['ILSVRC2012_devkit_t12.tar.gz', f'ILSVRC2012_img_{split}.tar']
         for file in files:
             filename = root_folder/f'IMAGENET1K2012/{file}'
@@ -212,15 +214,15 @@ def imagenet1K2012_collector(split='train', **kwargs):
                         url=f'https://image-net.org/data/ILSVRC/2012/{file}',
                         save_path=filename
                     )
-    if 'dataset' in kwargs:
-        del kwargs['dataset']
+        if filename.is_file():
+            os.remove(filename)
+    [kwargs.pop(s, None) for s in ['dataset', 'download']]
     data = torchvision.datasets.ImageNet(
         root=root_folder/'IMAGENET1K2012',
         split=split,
         **kwargs
     )
-    if filename.is_file():
-        os.remove(filename)
+    
     return data
 
 
