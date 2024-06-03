@@ -41,8 +41,8 @@ class SingleColorPerturber():
         color = self.color
         if isinstance(color, str):
             color = self.get_color(image)
-
-        color = cast_image(color, image.dtype.type)
+        #else:
+        #    color = cast_image(color, image.dtype)
 
         perturbed_segments = np.tile(image-color, (sample_masks.shape[0],1,1,1))
         perturbed_segments = (
@@ -143,8 +143,7 @@ class Cv2InpaintPertuber():
             [N,H,W,C] array of perturbed versions of the image
             [N,S] array identical to samples
         '''
-        dtype = image.dtype.type
-        image = cast_image(image, np.uint8)
+        image = (image*255).astype(np.uint8)
         sample_masks = 1-sample_masks.round().astype(np.uint8)
         perturbed_images = np.zeros(
             list(sample_masks.shape)+[3], dtype=np.uint8
@@ -152,7 +151,7 @@ class Cv2InpaintPertuber():
         for i, mask in enumerate(sample_masks):
             perturbed_image = cv2.inpaint(image, mask, self.radius, self.flags)
             perturbed_images[i] = perturbed_image
-        perturbed_image = cast_image(perturbed_image, dtype)
+        perturbed_image = (perturbed_image/255).astype(np.float32)
         return perturbed_images, samples
 
 class ColorHistogramPerturber():
@@ -178,7 +177,7 @@ class ColorHistogramPerturber():
             [N*X,H,W,C] array of perturbed versions of the image
             [N*X,S] array indicating which segments have been perturbed
         '''
-        if issubclass(image.dtype.type, numbers.Integral):
+        if np.issubdtype(image.dtype, np.integer):
             color_max = 255
         else:
             color_max = 1.0
@@ -242,18 +241,18 @@ class RandomColorPerturber():
         else:
             nr = 1
         if self.uniform_rgb:
-            color = np.random.random_sample(size=(nr,1,1,3))
-            color = cast_image(color, image.dtype.type)
+            color = np.random.random_sample(size=(nr,1,1,3)).astype(np.float32)
         else:
             color = np.random.randint(0, image.shape[0]*image.shape[1], nr)
             color = (image.reshape(-1,3)[color]).reshape((nr,1,1,3))
-        perturbed_segments = np.tile(image, (sample_masks.shape[0],1,1,1))-color
+        perturbed_segments = np.tile(image,(sample_masks.shape[0],1,1,1))-color
         perturbed_segments = (
-            perturbed_segments*sample_masks.reshape(list(sample_masks.shape)+[1])
+            perturbed_segments*sample_masks.reshape(*sample_masks.shape,1)
         )+color
         return perturbed_segments, samples
 
-
+#TODO: Make the package use only float images
+"""
 # Image handling utilities
 def cast_image(image, dtype):
     '''
@@ -264,15 +263,15 @@ def cast_image(image, dtype):
         dtype (dtype): The numpy datatype to cast the image to
     Returns (array): [H,W,C] array with the image in the given dtype format
     '''
-    image_is_int = issubclass(image.dtype.type, numbers.Integral)
+    image_is_int = np.issubdtype(image.dtype, np.integer)
     image_max_val = np.max(image)
-    dtype_is_int = issubclass(dtype, numbers.Integral)
+    dtype_is_int = np.issubdtype(dtype, np.integer)
     if dtype_is_int == (image_is_int or image_max_val>1.0):
         return image.astype(dtype)
     if dtype_is_int:
         return (image*255).round().astype(dtype) 
     return (image/255).astype(dtype)
-
+"""
 
 # Perturbation utilities
 def replace_image_perturbation(
@@ -293,7 +292,7 @@ def replace_image_perturbation(
         [N*X,H,W,C] array of perturbed versions of the image
         [N*X,S] array indicating which segments have been perturbed
     '''
-    replace_images = cast_image(replace_images, image.dtype.type)
+    #replace_images = cast_image(replace_images, image.dtype)
     if len(replace_images.shape) == 4 and not one_each:
         total_samples = sample_masks.shape[0]*replace_images.shape[0]
     elif len(replace_images.shape) == 3 or one_each:
@@ -310,6 +309,6 @@ def replace_image_perturbation(
     perturbed = (
         perturbed*sample_masks.reshape(list(sample_masks.shape)+[1])
     )+replace_images
-    if issubclass(image.dtype.type, numbers.Integral):
+    if np.issubdtype(image.dtype, np.integer):
         perturbed = perturbed.astype(int, copy=False)
     return perturbed, samples

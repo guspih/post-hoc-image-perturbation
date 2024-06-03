@@ -29,7 +29,7 @@ class ImageAUCEvaluator():
         self.return_curves = return_curves
         self.normalize = normalize
         if perturber is None:
-            self.perturber = SingleColorPerturber((190,190,190))
+            self.perturber = SingleColorPerturber((0.5,0.5,0.5))
 
     def __call__(
         self, image, model, vals, masks=None, sample_size=None, model_idxs=...
@@ -93,7 +93,7 @@ class PointingGameEvaluator():
         return np.mean(hit_mask[np.max(vals) == vals])
 
 # Evaluation samplers
-def auc_sampler(vals, sample_size=None, mif=False):
+def auc_sampler(vals, sample_size=None, mif=False, ignore_ends=False):
     '''
     Creates an array of samples where each following sample has more deleted
     features than the preceeding one. The most or least influential features,
@@ -104,6 +104,7 @@ def auc_sampler(vals, sample_size=None, mif=False):
         vals (array): The attribution scores of the different features
         sample_size (int): Nr of samples to generate (<=len(vals))
         mif (bool): If True, the most influential feature is deleted first
+        ignore_ends (bool): If True, does not generate samples of all 0 or 1
     Returns (array): [sample_size, *vals.shape] array indexing what to perturb
     '''
     if sample_size is None:
@@ -122,7 +123,11 @@ def auc_sampler(vals, sample_size=None, mif=False):
         indices = indices[::-1]
     samples = np.ones((sample_size, vals.size))
     old_j=0
-    for n, i in enumerate(np.linspace(0,vals.size, sample_size)):
+    if ignore_ends:
+        breakpoints = np.linspace(0, vals.size, sample_size+2)[1:-1]
+    else:
+        breakpoints = np.linspace(0, vals.size, sample_size)
+    for n, i in enumerate(breakpoints):
         j = round(i)
         idxs = indices[old_j:j]
         samples[n:, idxs] = 0

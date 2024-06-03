@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-from image_perturbers import SingleColorPerturber, ReplaceImagePerturber, cast_image
+from image_perturbers import SingleColorPerturber, ReplaceImagePerturber#, cast_image
 from image_segmenters import perturbation_masks
 
 
@@ -23,7 +23,7 @@ class TopVisualizer():
     ):
         self.perturber = perturber
         if perturber is None:
-            self.perturber = SingleColorPerturber((190,190,190))
+            self.perturber = SingleColorPerturber((0.5,0.5,0.5))
         if (k is None)+(p is None)+(percent is None)+(treshold is None) != 3:
             raise ValueError(
                 'Exactly one of k, p, percent, and treshold should be set'
@@ -118,10 +118,10 @@ class HeatmapVisualizer():
             heatmap = heatmap/np.max(heatmap)
         if self.invert_colormap:
             heatmap = 1-heatmap
-        heatmap = cast_image(heatmap, np.uint8)
+        heatmap = (heatmap*255).astype(np.uint8)
         heatmap = cv2.applyColorMap(heatmap, colormap=self.colormap)
         perturbed_image = self.perturber(
             image, np.full(image.shape[:1], self.image_weight), None,
-            replace_images=heatmap
+            replace_images=(heatmap/255).astype(np.float32)
         )[0]
         return perturbed_image[0]
