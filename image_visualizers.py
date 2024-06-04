@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-from image_perturbers import SingleColorPerturber, ReplaceImagePerturber#, cast_image
+from image_perturbers import SingleColorPerturber, ReplaceImagePerturber
 from image_segmenters import perturbation_masks
 
 

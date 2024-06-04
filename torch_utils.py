@@ -2,8 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-#from image_perturbers import cast_image
-
 
 class TorchModelWrapper(nn.Module):
     def __init__(

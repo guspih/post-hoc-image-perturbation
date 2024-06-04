@@ -41,9 +41,6 @@ class SingleColorPerturber():
         color = self.color
         if isinstance(color, str):
             color = self.get_color(image)
-        #else:
-        #    color = cast_image(color, image.dtype)
-
         perturbed_segments = np.tile(image-color, (sample_masks.shape[0],1,1,1))
         perturbed_segments = (
             perturbed_segments*sample_masks.reshape(list(sample_masks.shape)+[1])
@@ -251,27 +248,6 @@ class RandomColorPerturber():
         )+color
         return perturbed_segments, samples
 
-#TODO: Make the package use only float images
-"""
-# Image handling utilities
-def cast_image(image, dtype):
-    '''
-    Casts an image from one numpy dtype to another. Integer dtypes has RGB 
-    values from 0 to 255 and Fractional dtypes has values from 0.0 to 1.0
-    Args:
-        image (array): [H,W,C] array with the image to cast
-        dtype (dtype): The numpy datatype to cast the image to
-    Returns (array): [H,W,C] array with the image in the given dtype format
-    '''
-    image_is_int = np.issubdtype(image.dtype, np.integer)
-    image_max_val = np.max(image)
-    dtype_is_int = np.issubdtype(dtype, np.integer)
-    if dtype_is_int == (image_is_int or image_max_val>1.0):
-        return image.astype(dtype)
-    if dtype_is_int:
-        return (image*255).round().astype(dtype) 
-    return (image/255).astype(dtype)
-"""
 
 # Perturbation utilities
 def replace_image_perturbation(
@@ -292,7 +268,6 @@ def replace_image_perturbation(
         [N*X,H,W,C] array of perturbed versions of the image
         [N*X,S] array indicating which segments have been perturbed
     '''
-    #replace_images = cast_image(replace_images, image.dtype)
     if len(replace_images.shape) == 4 and not one_each:
         total_samples = sample_masks.shape[0]*replace_images.shape[0]
     elif len(replace_images.shape) == 3 or one_each:
