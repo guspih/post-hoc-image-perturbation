@@ -76,9 +76,15 @@ class GridSegmenter():
             segment_masks[i, i//self.h_nr, i%self.v_nr] = 1
         segment_masks = resize(
             segment_masks, (self.h_nr*self.v_nr,h_size,v_size), mode='reflect',
-            order=1 if self.bilinear else 0, anti_aliasing=False
+            order=0, anti_aliasing=False
         )
-        return segments, segment_masks, segment_masks
+        if not self.bilinear:
+            return segments, segment_masks, segment_masks
+        transformed_masks = resize(
+            segment_masks, (self.h_nr*self.v_nr,h_size,v_size), mode='reflect',
+            order=1, anti_aliasing=False
+        )   
+        return segments, segment_masks, transformed_masks
 
 class FadeMaskSegmenter():
     '''
