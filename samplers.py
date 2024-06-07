@@ -12,6 +12,9 @@ class RandomSampler():
     '''
     def __init__(self, p=0.5):
         self.p = p
+
+    def __str__(self):
+        return f'RandomSampler({self.p})'
     
     def __call__(self, M, sample_size=None):
         '''
@@ -39,6 +42,10 @@ class SingleFeatureSampler():
         self.inverse = inverse
         self.add_all = add_all
         self.add_none = add_none
+    
+    def __str__(self):
+        content = f'{self.inverse},{self.add_all},{self.add_none}'
+        return f'SingleFeatureSampler({content})'
 
     def __call__(self, M, sample_size=None):
         '''
@@ -76,6 +83,9 @@ class ShapSampler():
     '''
     def __init__(self, ignore_warning=False):
         self.ignore_warnings = ignore_warning
+    
+    def __str__(self):
+        return f'ShapSampler()'
 
     def __call__(self, M, sample_size=None):
         '''

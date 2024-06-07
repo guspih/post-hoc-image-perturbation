@@ -18,6 +18,9 @@ class OriginalCIUAttributer():
     def __init__(self, inverse=False, expected_util=0.5):
         self.inverse = inverse
         self.expected_util = expected_util
+    
+    def __str__(self):
+        return f'OriginalCIUAttributer({self.inverse},{self.expected_util})'
 
     def __call__(self, Y, Z):
         '''
@@ -68,6 +71,9 @@ class CIUAttributer():
         self.expected_util = expected_util
         self.return_samples = return_samples
 
+    def __str__(self):
+        return f'CIUAttributer({self.expected_util},{self.return_samples})'
+
     def __call__(self, Y, Z):
         '''
         Args:
@@ -107,6 +113,9 @@ class SHAPAttributer():
     is perturbed. Each SHAP value measures how much the Y value changes if that
     feature is included (as opposed to if it is perturbed).
     '''
+    def __str__(self):
+        return f'SHAPAttributer()'
+
     def __call__(self, Y, Z):
         '''
         Args:
@@ -136,6 +145,8 @@ class RISEAttributer():
     attributed with the average Y value when that feature is not perturbed. To
     recreate full RISE the samples have to be random (see random_sampler).
     '''
+    def __str__(self):
+        return f'RISEAttributer()'
     def __call__(self, Y, Z):
         '''
         Args:
@@ -155,6 +166,8 @@ class LinearLIMEAttributer():
     surrogate model with the least squares method. The attribution of each
     feature is their weight in the linear surrogate.
     '''
+    def __str__(self):
+        return f'LinearLIMEAttributer()'
     def __call__(self, Y, Z):
         '''
         Args:
@@ -192,6 +205,11 @@ class PDAAttributer():
             raise ValueError(
                 f'variant has to be one of {modes} but got {mode}'
             )
+
+    def __str__(self):
+        content = f'{self.divide_weight},{self.mode}'
+        if not self.mode == 'probdiff': content += f',{self.c},{self.n}'
+        return f'PDAAttributer({content})'
 
     def __call__(self, Y, Z):
         '''

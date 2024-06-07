@@ -15,6 +15,15 @@ class WrapperSegmenter():
     def __init__(self, segmenter, **kwargs):
         self.segmenter = segmenter
         self.kwargs = kwargs
+        if hasattr(segmenter, '__name__'):
+            self.segmenter_str = segmenter.__name__
+        else:
+            self.segmenter_str = segmenter.__class__.__name__
+
+    def __str__(self):
+        kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
+        kw = ',' + kw if len(kw) > 0 else kw
+        return f'WrapperSegmenter({self.segmenter_str}{kw})'
     
     def __call__(self, image, **kwargs):
         '''
@@ -43,6 +52,9 @@ class GridSegmenter():
         self.h_nr = h_segments
         self.v_nr = v_segments
         self.bilinear = bilinear
+
+    def __str__(self):
+        return f'GridSegmenter({self.h_nr},{self.v_nr},{self.bilinear})'
 
     def __call__(self, image):
         '''
@@ -83,6 +95,11 @@ class FadeMaskSegmenter():
         self.sigma = sigma
         self.kwargs = kwargs
     
+    def __str__(self):
+        kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
+        kw = ',' + kw if len(kw) > 0 else kw
+        return f'FadeMaskSegmenter({self.segmenter},{self.sigma}{kw})'
+
     def __call__(self, image, **kwargs):
         '''
         Args:

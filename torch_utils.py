@@ -10,16 +10,18 @@ class TorchModelWrapper(nn.Module):
     ):
         super().__init__()
         self.model = model
-        self.input_transform = input_transforms
+        self.input_transforms = input_transforms
         self.output_idxs = output_idxs
         self.contrast = contrast
         self.gpu = gpu
-
         if gpu:
             model.cuda()
-    
+
+    def __str__(self):
+        return self.model.__class__.__name__
+
     def __call__(self, x):
-        x = self.input_transform(x)
+        x = self.input_transforms(x)
         if self.gpu:
             x = x.cuda()
         y = self.model(x).numpy(force=True)[:, self.output_idxs]

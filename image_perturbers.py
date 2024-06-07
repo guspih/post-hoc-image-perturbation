@@ -28,6 +28,13 @@ class SingleColorPerturber():
         else:
             self.color = np.array(color)
 
+    def __str__(self):
+        if isinstance(self.color, str):
+            color = self.color
+        else:
+            color = '('+','.join([str(c) for c in self.color])+')'
+        return f'SingleColorPerturber({color})'
+
     def __call__(self, image, sample_masks, samples):
         '''
         Args:
@@ -57,10 +64,21 @@ class ReplaceImagePerturber():
     Args:
         replace_images (array): [X,H,W,C] array with alternative images or None
         one_each (bool): If True, each perturbed image has a given replacement
+        replace_images_str (str): Used for printing perturber
     '''
-    def __init__(self, replace_images, one_each=False):
+    def __init__(
+        self, replace_images, one_each=False, replace_images_str=None
+    ):
         self.replace_images = replace_images
         self.one_each = one_each
+        self.replace_images_str = replace_images_str
+        if replace_images_str is None:
+            shape = 'None' if replace_images is None else replace_images.shape
+            self.replace_images_str = '('+','.join([str(n) for n in shape])+')'
+
+    def __str__(self):
+        content = f'{self.one_each},{self.replace_images_str}'
+        return f'ReplaceImagePerturber({content})'
 
     def __call__(self, image, sample_masks, samples, replace_images=None):
         '''
@@ -94,6 +112,15 @@ class TransformPerturber():
     def __init__(self, transform, **kwargs):
         self.transform = transform
         self.kwargs = kwargs
+        if hasattr(transform, '__name__'):
+            self.transform_str = transform.__name__
+        else:
+            self.transform_str = transform.__class__.__name__
+
+    def __str__(self):
+        kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
+        kw = ',' + kw if len(kw) > 0 else kw
+        return f'TransformPerturber({self.transform_str}{kw})'
 
     def __call__(self, image, sample_masks, samples, **kwargs):
         '''
@@ -111,7 +138,7 @@ class TransformPerturber():
             image, sample_masks, samples, replace_images
         )
 
-class Cv2InpaintPertuber():
+class Cv2InpaintPerturber():
     '''
     Creates perturbed versions of the image by inpainting the pixels indicated
     by 0 using either of the two inpainting methods implemented by OpenCV.
@@ -128,7 +155,11 @@ class Cv2InpaintPertuber():
             raise ValueError(
                 f'mode has to be "telea" or "bertalmio", but {mode} was given.'
             )
+        self.mode = mode
         self.radius = radius
+    
+    def __str__(self):
+        return f'Cv2InpaintPerturber({self.mode},{self.radius})'
 
     def __call__(self, image, sample_masks, samples):
         '''
@@ -142,9 +173,7 @@ class Cv2InpaintPertuber():
         '''
         image = (image*255).astype(np.uint8)
         sample_masks = 1-sample_masks.round().astype(np.uint8)
-        perturbed_images = np.zeros(
-            list(sample_masks.shape)+[3], dtype=np.uint8
-            )
+        perturbed_images = np.zeros((*sample_masks.shape,3), dtype=np.uint8)
         for i, mask in enumerate(sample_masks):
             perturbed_image = cv2.inpaint(image, mask, self.radius, self.flags)
             perturbed_images[i] = perturbed_image
@@ -163,6 +192,9 @@ class ColorHistogramPerturber():
     '''
     def __init__(self, nr_bins=8):
         self.nr_bins = 8
+
+    def __str__(self):
+        return f'ColorHistogramPerturber({self.nr_bins})'
     
     def __call__(self, image, sample_masks, samples):
         '''
@@ -222,6 +254,9 @@ class RandomColorPerturber():
     def __init__(self, uniform_rgb=False, draw_for_each=False):
         self.uniform_rgb = uniform_rgb
         self.draw_for_each = draw_for_each
+    
+    def __str__(self):
+        return f'RandomColorPerturber({self.uniform_rgb},{self.draw_for_each})'
     
     def __call__(self, image, sample_masks, samples):
         '''
