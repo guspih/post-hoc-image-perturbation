@@ -27,6 +27,7 @@ class SingleColorPerturber():
                 )
         else:
             self.color = np.array(color)
+        self.deterministic = True
 
     def __str__(self):
         if isinstance(self.color, str):
@@ -75,6 +76,7 @@ class ReplaceImagePerturber():
         if replace_images_str is None:
             shape = 'None' if replace_images is None else replace_images.shape
             self.replace_images_str = '('+','.join([str(n) for n in shape])+')'
+        self.deterministic = True
 
     def __str__(self):
         content = f'{self.one_each},{self.replace_images_str}'
@@ -116,6 +118,7 @@ class TransformPerturber():
             self.transform_str = transform.__name__
         else:
             self.transform_str = transform.__class__.__name__
+        self.deterministic = False
 
     def __str__(self):
         kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
@@ -157,6 +160,7 @@ class Cv2InpaintPerturber():
             )
         self.mode = mode
         self.radius = radius
+        self.deterministic = True
     
     def __str__(self):
         return f'Cv2InpaintPerturber({self.mode},{self.radius})'
@@ -192,6 +196,7 @@ class ColorHistogramPerturber():
     '''
     def __init__(self, nr_bins=8):
         self.nr_bins = 8
+        self.deterministic = False
 
     def __str__(self):
         return f'ColorHistogramPerturber({self.nr_bins})'
@@ -254,6 +259,7 @@ class RandomColorPerturber():
     def __init__(self, uniform_rgb=False, draw_for_each=False):
         self.uniform_rgb = uniform_rgb
         self.draw_for_each = draw_for_each
+        self.deterministic = False
     
     def __str__(self):
         return f'RandomColorPerturber({self.uniform_rgb},{self.draw_for_each})'
