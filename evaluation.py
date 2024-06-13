@@ -14,10 +14,12 @@ class ImageAUCEvaluator():
         mode (str): Which score to calculate. 'mif'/'lif' are included in 'srg'
         perturber (callable): Perturber used to remove the segments
         return_curves (bool): Whether to also return the model outputs
-        normalize (bool): Whether to normalize so the curve goes from 1 to 0
+        normalize (bool): Whether to normalize so the curve(s) goes from 1 to 0
+        return_visuals (bool): Whether to also return the deletion images
     '''
     def __init__(
-        self, mode='srg', perturber=None, return_curves=False, normalize=False
+        self, mode='srg', perturber=None, return_curves=False, normalize=False,
+        return_visuals=False
     ):
         self.mif = []
         if mode != 'mif':
@@ -28,8 +30,13 @@ class ImageAUCEvaluator():
         self.perturber = perturber
         self.return_curves = return_curves
         self.normalize = normalize
+        self.return_visuals = return_visuals
         if perturber is None:
             self.perturber = SingleColorPerturber((0.5,0.5,0.5))
+
+        # Variables to hold information between calls
+        self.scores = None
+        self.curves = None
 
     def __call__(
         self, image, model, vals, masks=None, sample_size=None, model_idxs=...
@@ -48,6 +55,8 @@ class ImageAUCEvaluator():
         '''
         scores = []
         curves = []
+        self.scores = []
+        self.curves = []
         for mif in self.mif:
             samples = auc_sampler(vals, sample_size, mif)
             if not masks is None:
@@ -60,16 +69,32 @@ class ImageAUCEvaluator():
             ys = model(perturbed_images)[model_idxs]
             if len(ys.shape) == 1:
                 ys = np.expand_dims(ys, axis=-1)
-            if self.normalize:
-                ys = ys-ys[-1]
-                ys = ys/ys[0]
+            self.curves.append(ys)
+            self.scores.append(np.mean(ys, axis=0))
+        if self.normalize:
+            scores, curves = self.get_normalized()
+        else:
+            scores, curves = self.scores, self.curves
+        if self.mode == 'srg':
+            scores.append(scores[0]-scores[1])
+        ret = [scores]
+        if self.return_curves:
+            ret.append(curves)
+        if self.return_visuals:
+            ret.append(perturbed_images)
+        return ret[0] if len(ret) ==1 else ret
+    
+    def get_normalized(self):
+        curves = []
+        scores = []
+        for ys in self.curves:
+            ys = ys-ys[-1]
+            ys = ys/ys[0]
             curves.append(ys)
             scores.append(np.mean(ys, axis=0))
         if self.mode == 'srg':
             scores.append(scores[0]-scores[1])
-        if self.return_curves:
-            return scores, curves
-        return scores
+        return scores, curves
 
 class PointingGameEvaluator():
     '''
