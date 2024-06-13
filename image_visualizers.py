@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 
 from image_perturbers import SingleColorPerturber, ReplaceImagePerturber
 from image_segmenters import perturbation_masks
@@ -125,3 +126,31 @@ class HeatmapVisualizer():
             replace_images=(heatmap/255).astype(np.float32)
         )[0]
         return perturbed_image[0]
+
+class AUCVisualizer():
+    '''
+    Makes a matplotlib plot showcasing the AUC scores for provided curves.
+    '''
+    def __call__(self, *curves):
+        '''
+        Args:
+            *curves: Curves to display of format values or (values, title str),
+                where values is either a lif/mif curve or a tuple of (lif, mif)
+        '''
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        plt.figure()
+        titles = []
+        for i, curve in enumerate(curves):
+            if isinstance(curve[-1], str):
+                titles.append(curve[-1])
+                curve = curve[0]
+            color = colors[i%len(colors)]
+            if len(curve) == 2:
+                lif, mif = curve
+                plt.plot(np.linspace(0,1,len(lif)), lif, c=color)
+                plt.plot(np.linspace(0,1,len(mif)), mif, c=color)
+            else:
+                plt.plot(np.linspace(0,1,len(curve)), curve, c=color)
+        if len(titles) > 0:
+            plt.legend(titles)
+        plt.show()
