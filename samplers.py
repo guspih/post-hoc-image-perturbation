@@ -1,12 +1,13 @@
 import itertools
 import numpy as np
+import scipy.stats
 import warnings
 
 
 class RandomSampler():
     '''
-    Creates an array of samples where each feature is include (set to 1) with a
-    given probability and to be perturbed (set to 0) otherwise.
+    Creates an array of samples where each feature is included (=1) with a
+    given probability and to be perturbed (=0) otherwise.
     Args:
         p (float): Probability in [0,1] that a feature is included a sample
     '''
@@ -27,6 +28,61 @@ class RandomSampler():
         if sample_size is None:
             sample_size = M**2
         return np.random.choice(2, (sample_size, M), p=(1-self.p, self.p))
+
+class SampleProbabilitySampler():
+    '''
+    Creates and array of samples where each feature is set to be perturbed (=0)
+    or not to be perturbed (=1) with a probability that, for each sample, is
+    drawn from a given distribution. Available distributions are 'uniform',
+    'normal' (truncated), and 'beta'. The distribution probabilities can be 
+    inversed.
+    Args:
+        distribution (str): The distribution to draw p for each sample from
+        inverse (bool): If True, samples are drawn using 1-p instead
+        **kwargs: Additional arguments for the distributions
+    '''
+    def __init__(self, distribution='uniform', inverse=False, **kwargs):
+        self.deteministic = False
+        self.distribution = distribution
+        self.inverse = inverse
+        self.kwargs = kwargs
+        distributions = ['uniform', 'normal', 'beta']
+        if not distribution in distributions:
+            raise ValueError(
+                f'distribution={distribution} should be one of {distributions}'
+            )
+
+    def __str__(self):
+        kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
+        kw = ',' + kw if len(kw) > 0 else kw
+        content = f'{self.distribution},{self.inverse}{kw}'
+        return f'SampleProbabilitySampler({content})'
+    
+    def __call__(self, M, sample_size=None):
+        '''
+        Args:
+            M (int): Nr of features in each sample that can be perturbed
+            sample_size (int): Nr of different samples to generate
+        Returns: [sample_size, M] array indicating the features to perturb
+        '''
+        if sample_size is None:
+            sample_size = M**2
+        if self.distribution == 'uniform':
+            sample_p = np.random.rand(sample_size,1)
+        elif self.distribution == 'normal':
+            loc = self.kwargs.get('loc', 0.5)
+            scale = self.kwargs.get('scale', 1)
+            a, b = (0-loc)/scale, (1-loc)/scale
+            sample_p = scipy.stats.truncnorm(a, b, loc, scale).rvs(
+                size=(sample_size,1)
+            )
+        elif self.distribution == 'beta':
+            a = self.kwargs.get('a', 1.5)
+            b = self.kwargs.get('b', 1.5)
+            sample_p = np.random.beta(a, b, size=(sample_size,1))
+        if self.inverse:
+            sample_p = 1-sample_p
+        return (sample_p < np.random.rand(sample_size,M)).astype(np.int32)
 
 class SingleFeatureSampler():
     '''
