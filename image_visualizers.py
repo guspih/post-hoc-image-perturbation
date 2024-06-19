@@ -153,4 +153,4 @@ class AUCVisualizer():
                 plt.plot(np.linspace(0,1,len(curve)), curve, c=color)
         if len(titles) > 0:
             plt.legend(titles)
-        plt.show()
+        plt.show(block=False)
