@@ -3,6 +3,8 @@ import numpy as np
 from image_perturbers import SingleColorPerturber
 from image_segmenters import perturbation_masks
 
+import matplotlib.pyplot as plt
+
 #Evaluators
 class ImageAUCEvaluator():
     '''
@@ -55,6 +57,7 @@ class ImageAUCEvaluator():
         '''
         scores = []
         curves = []
+        visuals = []
         self.scores = []
         self.curves = []
         for mif in self.mif:
@@ -66,6 +69,7 @@ class ImageAUCEvaluator():
             perturbed_images, perturbed_samples = self.perturber(
                 image, distortion_masks, samples
             )
+            visuals.append(perturbed_images)
             ys = model(perturbed_images)[model_idxs]
             if len(ys.shape) == 1:
                 ys = np.expand_dims(ys, axis=-1)
@@ -81,7 +85,7 @@ class ImageAUCEvaluator():
         if self.return_curves:
             ret.append(curves)
         if self.return_visuals:
-            ret.append(perturbed_images)
+            ret.append(visuals)
         return ret[0] if len(ret) ==1 else ret
     
     def get_normalized(self):
