@@ -10,11 +10,13 @@ class SegmentationPredictionPipeline():
         segmenter (callable): Return [H,W], [S,H,W] segments and S masks
         sampler (callable): Return [N,S] N samples of segments to perturb
         perturber (callable): Return [M,H,W,C], [M,S] perturbed images, samples
+        batch_size (int): How many perturbed images to feed the model at once
     '''
-    def __init__(self, segmenter, sampler, perturber):
+    def __init__(self, segmenter, sampler, perturber, batch_size=None):
         self.segmenter = segmenter
         self.sampler = sampler
         self.perturber = perturber
+        self.batch_size = batch_size
 
         # Variables to hold information between calls
         self.masks = None
@@ -41,7 +43,20 @@ class SegmentationPredictionPipeline():
             image, distortion_masks, self.samples
         )
         self.nr_model_calls = len(perturbed_images)
-        ys = model(perturbed_images)
+        old_k = 0
+        ys = []
+        if self.batch_size is None:
+            ys = model(perturbed_images)
+        else:
+            batch = np.linspace(
+                0, len(perturbed_images),
+                np.floor(len(perturbed_images)/self.batch_size + 1).astype(np.int32)
+            )
+            for k in range(len(batch)-1):
+                ys.append(
+                    model(perturbed_images[round(batch[k]):round(batch[k+1])])
+                )
+            ys = np.concatenate(ys)
         if len(ys.shape)==1:
             ys = np.expand_dims(self.ys, axis=-1)
         return ys, perturbed_samples
@@ -57,19 +72,22 @@ class SegmentationAttribuitionPipeline():
         perturber (callable): Return [M,H,W,C], [M,S] perturbed images, samples
         explainer (callable): Calculates attribution based on perturbation
         per_pixel (bool): Whether to also return a map of attribution per pixel
+        batch_size (int): How many perturbed images to feed the model at once
     '''
     def __init__(
-        self, segmenter, sampler, perturber, explainer, per_pixel=False
+        self, segmenter, sampler, perturber, explainer, per_pixel=False,
+        batch_size=None
     ):
         self.segmenter = segmenter
         self.sampler = sampler
         self.perturber = perturber
         self.explainer = explainer
         self.per_pixel = per_pixel
+        self.batch_size = batch_size
 
         # Reuse SegmentationPerturbationPipeline
         self.prediction_pipeline = SegmentationPredictionPipeline(
-            segmenter, sampler, perturber
+            segmenter, sampler, perturber, batch_size=batch_size
         )
 
         # Variables to hold information between calls
