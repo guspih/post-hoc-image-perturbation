@@ -65,21 +65,24 @@ class ReplaceImagePerturber():
     Args:
         replace_images (array): [X,H,W,C] array with alternative images or None
         one_each (bool): If True, each perturbed image has a given replacement
+        random (book): If True, one replace image is chosen randomly per sample
         replace_images_str (str): Used for printing perturber
     '''
     def __init__(
-        self, replace_images, one_each=False, replace_images_str=None
+        self, replace_images, one_each=False, random=False,
+        replace_images_str=None
     ):
         self.replace_images = replace_images
         self.one_each = one_each
+        self.random = random
         self.replace_images_str = replace_images_str
         if replace_images_str is None:
             shape = 'None' if replace_images is None else replace_images.shape
             self.replace_images_str = '('+','.join([str(n) for n in shape])+')'
-        self.deterministic = True
+        self.deterministic = not random
 
     def __str__(self):
-        content = f'{self.one_each},{self.replace_images_str}'
+        content = f'{self.one_each},{self.random},{self.replace_images_str}'
         return f'ReplaceImagePerturber({content})'
 
     def __call__(self, image, sample_masks, samples, replace_images=None):
@@ -93,12 +96,16 @@ class ReplaceImagePerturber():
             [N*X,H,W,C] array of perturbed versions of the image
             [N*X,S] array indicating which segments have been perturbed
         '''
-        if not replace_images is None:
-            return replace_image_perturbation(
-                image, sample_masks, samples, replace_images, self.one_each
-            )
+        one_each = self.one_each
+        if replace_images is None:
+            replace_images = self.replace_images
+        if self.random:
+            one_each = True
+            replace_images = replace_images[
+                np.random.choice(len(replace_images), len(sample_masks))
+            ]
         return replace_image_perturbation(
-            image, sample_masks, samples, self.replace_images, self.one_each
+            image, sample_masks, samples, replace_images, one_each
         )
 
 class TransformPerturber():
