@@ -177,6 +177,7 @@ class LinearLIMEAttributer():
             [M] array of the surrogate weights used as attributions
             [M,M] array mapping attribution scores to features
         '''
+        Z = np.concatenate((Z, torch.ones((Z.shape[0], 1))), axis=1)
         return np.linalg.lstsq(Z, Y, rcond=None)[0][:-1], np.eye(Z.shape[1])
 
 class PDAAttributer():
