@@ -48,13 +48,12 @@ class SegmentationPredictionPipeline():
         if self.batch_size is None:
             ys = model(perturbed_images)
         else:
-            batch = np.linspace(
-                0, len(perturbed_images),
-                np.floor(len(perturbed_images)/self.batch_size + 1).astype(np.int32)
-            )
+            batch = list(range(
+                0, len(perturbed_images), self.batch_size
+            )) + [len(perturbed_images)]
             for k in range(len(batch)-1):
                 ys.append(
-                    model(perturbed_images[round(batch[k]):round(batch[k+1])])
+                    model(perturbed_images[batch[k]:batch[k+1]])
                 )
             ys = np.concatenate(ys)
         if len(ys.shape)==1:
