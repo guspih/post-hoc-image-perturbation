@@ -36,26 +36,29 @@ class SegmentationPredictionPipeline():
         '''
         segments, self.masks, self.transformed_masks = self.segmenter(image)
         self.samples = self.sampler(len(self.transformed_masks), sample_size)
-        distortion_masks = perturbation_masks(
-            self.transformed_masks, self.samples
-        )
-        perturbed_images, perturbed_samples = self.perturber(
-            image, distortion_masks, self.samples
-        )
-        self.nr_model_calls = len(perturbed_images)
-        old_k = 0
-        ys = []
         if self.batch_size is None:
-            ys = model(perturbed_images)
+            batch = [0, len(self.samples)]
         else:
             batch = list(range(
-                0, len(perturbed_images), self.batch_size
-            )) + [len(perturbed_images)]
-            for k in range(len(batch)-1):
-                ys.append(
-                    model(perturbed_images[batch[k]:batch[k+1]])
-                )
-            ys = np.concatenate(ys)
+                0, len(self.samples), self.batch_size
+            )) + [len(self.samples)]
+        ys = []
+        perturbed_samples = []
+        old_k = 0
+        for k in range(len(batch)-1):
+            distortion_masks = perturbation_masks(
+                self.transformed_masks, self.samples[batch[k]:batch[k+1]]
+            )
+            perturbed_images, perturbed_sample = self.perturber(
+                image, distortion_masks, self.samples[batch[k]:batch[k+1]]
+            )
+            perturbed_samples.append(perturbed_sample)
+            ys.append(
+                model(perturbed_images)
+            )
+        ys = np.concatenate(ys)
+        perturbed_samples = np.concatenate(perturbed_samples)
+        self.nr_model_calls = len(ys)
         if len(ys.shape)==1:
             ys = np.expand_dims(self.ys, axis=-1)
         return ys, perturbed_samples
