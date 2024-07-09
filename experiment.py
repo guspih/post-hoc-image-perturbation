@@ -44,7 +44,6 @@ from workspace_path import home_path
 log_dir = home_path / 'logs'
 log_dir.mkdir(parents=True, exist_ok=True)
 
-
 # Headers of result files as divided into parameters and results
 general_parameters = [
     'segmenter', 'sampler', 'perturber', 'model', 'explainer', 'sample_size',
@@ -120,6 +119,8 @@ def run_auc_experiment(
         )
         auc_evaluator.__call__ = torch.compile(auc_evaluator.__call__)
         maskify = torch.compile(perturbation_masks)
+        for explainer, attribution_type in tests:
+            explainer.__call__ = torch.compile(explainer.__call__)
     else:
         maskify = perturbation_masks
 
@@ -133,7 +134,7 @@ def run_auc_experiment(
         transform=dataset_transform
     )
     imagenet_fraction = Subset(
-        imagenet, [int() for x in np.linspace(
+        imagenet, [int(x) for x in np.linspace(
             0, 50000, int(50000*fraction), endpoint=False
         )]
     )
@@ -148,11 +149,9 @@ def run_auc_experiment(
     correct = 0
     nr_model_calls = 0
     for i, (image, target) in enumerate(imagenet_loader):
-        print(1)
         image = image.permute((0,2,3,1)).numpy(force=True)
         predicted = np.argmax(model(image), axis=1)
         for k, (image, target) in enumerate(zip(image, target)):
-            print(2)
             total_num += 1
             step = i*batch_size+k
 
@@ -163,31 +162,27 @@ def run_auc_experiment(
             # If not using the true classes, get the top predicted classes
             if not use_true_class:
                 target = predicted[k]
-            print(2.1)
+
             # Get the y values for each prediction
             ys, samples = prediction_pipeline(
                 image, model, sample_size=sample_size
             )
-            print(2.2)
 
             # Get the number of times the model was called
             nr_model_calls += prediction_pipeline.nr_model_calls
-            print(3)
             # Exclude explainers that cannot handle the current pipeline
             if step == 0:
-                print(3.1)
                 new_tests = []
                 new_ids = []
                 ret = []
                 for id, (explainer, attribution_type) in zip(ids, tests):
-                    print(3.2, str(explainer), attribution_type)
                     try:
                         explainer(ys[:, target], samples)
                         new_tests.append((explainer, attribution_type))
                         new_ids.append(id)
                         # Create a return value container the explainer
                         ret.append([0 for _ in range(12)])
-                    except Exception:
+                    except Exception as e:
                         pass
                 # Stop experiment if there are no suitable explainers
                 if len(new_tests) == 0:
@@ -199,13 +194,12 @@ def run_auc_experiment(
             if verbose:
                 print(
                     #f'\rEvaluating on ImageNet validation set '
-                    f'({step+1}/{len(imagenet_fraction)}]) '
+                    f'[{step+1}/{len(imagenet_fraction)}] '
                     f'{datetime.now().strftime("%y-%m-%d_%Hh%M")}'#, end=''
                 )
 
             # Iterate over explainers and calculate their AUC
             for j, (explainer, attribution_type) in enumerate(tests):
-                print(4, str(explainer), attribution_type)
                 # Get explanations and calculate the pixel-wise attribution
                 attribution = explainer(ys[:, target], samples)[-2]
                 if attribution_type == 'segments':
@@ -223,18 +217,17 @@ def run_auc_experiment(
                 )
 
                 # AUC mean and variance
-                for k in range(0,3):
-                    ret[j][k] += scores[k]
-                for k in range(0,3):
-                    ret[j][k+6] += scores[k]**2
+                for l in range(0,3):
+                    ret[j][l] += scores[l]
+                for l in range(0,3):
+                    ret[j][l+6] += scores[l]**2
 
                 # Normalized AUC mean and variance
                 scores, curves = auc_evaluator.get_normalized()
-                for k in range(0,3):
-                    ret[j][k+3] += scores[k]
-                for k in range(0,3):
-                    ret[j][k+9] += scores[k]**2
-                print(5)
+                for l in range(0,3):
+                    ret[j][l+3] += scores[l]
+                for l in range(0,3):
+                    ret[j][l+9] += scores[l]**2
 
     for j, (id, (explainer, attribution_type)) in enumerate(zip(ids, tests)):
         # AUC mean
@@ -659,6 +652,7 @@ def main():
         # Get model and weights
         weights = 'IMAGENET1K_V2' if net == 'resnet50' else 'IMAGENET1K_V1'
         net = torchvision.models.__dict__[net](weights=weights)
+        net.eval()
         
         # Create a transform to prepare images for Torchvision
         transforms = v1.Compose([
