@@ -140,6 +140,7 @@ class AUCVisualizer():
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         plt.figure()
         titles = []
+        handles = []
         for i, curve in enumerate(curves):
             if isinstance(curve[-1], str):
                 titles.append(curve[-1])
@@ -147,10 +148,11 @@ class AUCVisualizer():
             color = colors[i%len(colors)]
             if len(curve) == 2:
                 lif, mif = curve
-                plt.plot(np.linspace(0,1,len(lif)), lif, c=color)
+                line, = plt.plot(np.linspace(0,1,len(lif)), lif, c=color)
                 plt.plot(np.linspace(0,1,len(mif)), mif, c=color)
             else:
-                plt.plot(np.linspace(0,1,len(curve)), curve, c=color)
+                line, = plt.plot(np.linspace(0,1,len(curve)), curve, c=color)
+            handles.append(line)
         if len(titles) > 0:
-            plt.legend(titles)
+            plt.legend(handles, titles)
         plt.show(block=False)
