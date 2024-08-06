@@ -48,6 +48,8 @@ class OriginalCIUAttributer():
                     'feature to be perturbed per sample (or all but one when '
                     'inverse=True)'
                 )
+            if nr_points != 1:
+                continue
             min_importance[point_position & (min_importance>y)] = y
             max_importance[point_position & (max_importance<y)] = y
         importance = (max_importance-min_importance)
