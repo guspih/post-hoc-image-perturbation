@@ -2,7 +2,6 @@ import torch
 import numpy as np
 import scipy.special
 
-
 # Attributers (Explainers that calculates attribution)
 class OriginalCIUAttributer():
     '''
@@ -42,6 +41,13 @@ class OriginalCIUAttributer():
         max_importance[:] = true_y
         for y, z in zip(Y,Z):
             point_position = z==point
+            nr_points = np.sum(point_position)
+            if nr_points > 1 and nr_points < M:
+                raise ValueError(
+                    'OriginalCIUAttributer require all, none, or exactly one '
+                    'feature to be perturbed per sample (or all but one when '
+                    'inverse=True)'
+                )
             min_importance[point_position & (min_importance>y)] = y
             max_importance[point_position & (max_importance<y)] = y
         importance = (max_importance-min_importance)
@@ -128,10 +134,8 @@ class SHAPAttributer():
         '''
         M = Z.shape[1]
         S = Z.sum(axis=1)
-        
         Z = np.concatenate((Z, torch.ones((Z.shape[0], 1))), axis=1)
         S_vals = np.unique(S)
-
         kernel_vals = np.sqrt(shap_kernel(M, S_vals))
         sqrt_pis = np.zeros(np.max(S_vals)+1)
         sqrt_pis[S_vals] = kernel_vals
@@ -242,6 +246,8 @@ class PDAAttributer():
             avg_relevance = np.log2(avg_relevance)
         if len(true_y) == 0: #TODO: Consider removing
             true_y = 0
+        elif len(true_y) > 1:
+            true_y = true_y[0]
         return true_y-avg_relevance, np.eye(M)
 
 
