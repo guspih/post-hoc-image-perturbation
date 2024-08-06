@@ -154,7 +154,7 @@ class ShapSampler():
         Returns: [sample_size, M] array indicating the features to perturb
         '''
         if sample_size is None:
-            sample_size = 2**M
+            sample_size = M+2
         #if sample_size < M and not ignore_warnings:
         if sample_size < M+2 and not self.ignore_warnings:
             warnings.warn(
@@ -162,7 +162,7 @@ class ShapSampler():
                 f'sample_size < M+2, but sample_size={sample_size} and M={M} '
                 f'was given.'
             )
-        samples = np.zeros((sample_size, M), dtype=int)
+        samples = np.ones((sample_size, M), dtype=int)
         
         i=0 # Indicates which sample to write to
         l=0 # Only used to give warning messages
@@ -182,7 +182,7 @@ class ShapSampler():
                             f'and {i+len(list(comb))+1}.'
                         )
                     break
-                samples[i,idx] = 1
+                samples[i,idx] = 0
                 i += 1
             if i == sample_size:
                 break
