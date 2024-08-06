@@ -137,9 +137,11 @@ class ShapSampler():
     all values the same, then all with a single feature included/perturbed,
     then all with two feature included/perturbed, and so on.
     Args:
+        inverse (bool): Whether to order the many perturbations first instead
         ignore_warnings (bool): Ignores unbalanced sample_size warnings if True
     '''
-    def __init__(self, ignore_warning=False):
+    def __init__(self, inverse=False, ignore_warning=False):
+        self.inverse = inverse
         self.ignore_warnings = ignore_warning
         self.deterministic = True
     
@@ -162,8 +164,12 @@ class ShapSampler():
                 f'sample_size < M+2, but sample_size={sample_size} and M={M} '
                 f'was given.'
             )
-        samples = np.ones((sample_size, M), dtype=int)
-        
+        if self.inverse:
+            point = 1
+            samples = np.zeros((sample_size, M), dtype=int)
+        else:
+            point = 0
+            samples = np.ones((sample_size, M), dtype=int)
         i=0 # Indicates which sample to write to
         l=0 # Only used to give warning messages
         for r in range(M+1):
@@ -182,7 +188,7 @@ class ShapSampler():
                             f'and {i+len(list(comb))+1}.'
                         )
                     break
-                samples[i,idx] = 0
+                samples[i,idx] = point
                 i += 1
             if i == sample_size:
                 break
