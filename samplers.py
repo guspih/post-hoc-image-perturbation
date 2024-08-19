@@ -26,7 +26,7 @@ class RandomSampler():
         Returns: [sample_size, M] array indicating the features to perturb
         '''
         if sample_size is None:
-            sample_size = M**2
+            sample_size = M
         return np.random.choice(2, (sample_size, M), p=(1-self.p, self.p))
 
 class SampleProbabilitySampler():
@@ -66,7 +66,7 @@ class SampleProbabilitySampler():
         Returns: [sample_size, M] array indicating the features to perturb
         '''
         if sample_size is None:
-            sample_size = M**2
+            sample_size = M
         if self.distribution == 'uniform':
             sample_p = np.random.rand(sample_size,1)
         elif self.distribution == 'normal':
