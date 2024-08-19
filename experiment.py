@@ -251,178 +251,6 @@ def run_auc_experiment(
     return
 
 
-def run_pointinggame_experiment(
-    dataset, segmenter, sampler, perturber, model, explainers,
-    sample_size=None, attribution_types=['segments', 'pixels'], fraction=1,
-    version=0, num_workers=10, compile=False, verbose=False
-):
-        # Create pipeline
-    prediction_pipeline = SegmentationPredictionPipeline(
-        segmenter, sampler, perturber, batch_size=128
-    )
-
-    # Combine explainers and attributions types (and copy explainers container)
-    tests = [(exp,att) for att in attribution_types for exp in explainers]
-
-    # Create evaluator
-    pg_evaluator = PointingGameEvaluator()
-
-    # Log file
-    log_file = log_dir / f'{dataset.lower()}_pg_results.csv'
-
-    # Create experiment IDs
-    ids = []
-    for explainer, attribution_type in tests:
-        ids.append([str(y) for y  in [
-            segmenter, sampler, perturber, model, explainer, sample_size,
-            attribution_type, fraction, version
-        ]])
-    
-    # Prune already run experiments
-    new_ids = []
-    new_tests = []
-    for id, test in zip(ids, tests):
-        ok = True
-        with open(log_file, newline='') as results:
-            results_reader = csv.reader(results, delimiter='\t', quotechar='|')
-            for row in results_reader:
-                if id == row[:len(general_parameters)]:
-                    ok = False
-                    break
-            if ok:
-                new_ids.append(id)
-                new_tests.append(test)
-    if len(new_tests) == 0:
-        return
-    tests = new_tests
-    ids = new_ids
-
-    # Set the seeds for consistent experiments
-    np.random.seed(version)
-
-    # If compile is set, use torch.compile to attempt to speed up experiment
-    if compile:
-        model.__call__ = torch.compile(model.__call__)
-        prediction_pipeline.__call__ = torch.compile(
-            prediction_pipeline.__call__
-        )
-        maskify = torch.compile(perturbation_masks)
-    else:
-        maskify = perturbation_masks
-
-    # Create a map between dataset and ImageNet classes
-    if dataset == 'VOCSegmentation':
-        class_map = [
-            895, 671, 10, 814, 898, 654, 817, 281, 559, None, 532, 208, None,
-            670, None, 738, 349, 831, 705, 851
-        ]
-
-    # Collect dataset and create a transform to get images in correct format
-    dataset_transform = v1.Compose([
-        v1.ToTensor(),
-        v1.Resize((224,224), antialias=True)
-    ])
-    imagenet = dataset_collector(
-        dataset, split='val', download=False,
-        transform=dataset_transform
-    )
-    imagenet_fraction = Subset(
-        imagenet, [int() for x in np.linspace(
-            0, 50000, int(50000*fraction), endpoint=False
-        )]
-    )
-    batch_size = 1
-    imagenet_loader = DataLoader(
-        imagenet_fraction, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers
-    )
-
-    # Iterate over all images, perturb them, expain them, and calculate AUC
-    total_num = 0
-    correct = 0
-    nr_model_calls = 0
-    for i, (image, target) in enumerate(imagenet_loader):
-        image = image.permute((0,2,3,1)).numpy(force=True)
-        predicted = np.argmax(model(image), axis=1)
-        for k, (image, target) in enumerate(zip(image, target)):
-            total_num += 1
-            step = i*batch_size+k
-
-            # Check if true and predicted class are the same for verification
-            if target == predicted[k]:
-                correct += 1
-
-            # If not using the true classes, get the top predicted classes
-            if not use_true_class:
-                target = predicted[k]
-
-            # Get the y values for each prediction
-            ys, samples = prediction_pipeline(
-                image, model, sample_size=sample_size
-            )
-
-            # Get the number of times the model was called
-            nr_model_calls += prediction_pipeline.nr_model_calls
-
-            # Exclude explainers that cannot handle the current pipeline
-            if step == 0:
-                new_tests = []
-                new_ids = []
-                ret = []
-                for id, (explainer, attribution_type) in zip(ids, tests):
-                    try:
-                        explainer(ys[:, target], samples)
-                        new_tests.append((explainer, attribution_type))
-                        new_ids.append(id)
-                        # Create a return value container the explainer
-                        ret.append([0 for _ in range(12)])
-                    except Exception:
-                        pass
-                # Stop experiment if there are no suitable explainers
-                if len(new_tests) == 0:
-                    return
-                tests = new_tests
-                ids = new_ids
-            
-            # If verbose, print info
-            if verbose and step%10 == 9:
-                print(
-                    #f'\rEvaluating on ImageNet validation set '
-                    f'({step+1}/{len(imagenet_fraction)}]) '
-                    f'{datetime.now().strftime("%y-%m-%d_%Hh%M")}'#, end=''
-                )
-
-            # Iterate over explainers and calculate their AUC
-            for j, (explainer, attribution_type) in enumerate(tests):
-                # Get explanations and calculate the pixel-wise attribution
-                attribution = explainer(ys[:, target], samples)[-2]
-                if attribution_type == 'segments':
-                    masks = prediction_pipeline.masks
-                else:
-                    masks = prediction_pipeline.transformed_masks
-                pixel_map = maskify(
-                    masks, attribution.reshape((1,-1))
-                )
-
-                # Calculate the AUC scores
-                scores, curves = auc_evaluator(
-                    image, model, pixel_map, sample_size=auc_sample_size,
-                    model_idxs=(...,target)
-                )
-
-                # AUC mean and variance
-                for k in range(0,3):
-                    ret[j][k] += scores[k]
-                for k in range(0,3):
-                    ret[j][k+6] += scores[k]**2
-
-                # Normalized AUC mean and variance
-                scores, curves = auc_evaluator.get_normalized()
-                for k in range(0,3):
-                    ret[j][k+3] += scores[k]
-                for k in range(0,3):
-                    ret[j][k+9] += scores[k]**2
-
 def main():
     '''
     Collects parameters from when the file is run and evaluates all
@@ -464,7 +292,9 @@ def main():
     )
     parser.add_argument(
         '--perturbers', type=str, nargs='+', default='black',
-        choices=['black', 'gray', 'mean', 'histogram', 'blur', 'cv2'],
+        choices=[
+            'black', 'gray', 'norm_zero', 'mean', 'histogram', 'blur', 'cv2'
+        ],
         help='The methods to use for perturbing the images'
     )
     parser.add_argument(
@@ -541,7 +371,7 @@ def main():
     if args.run_rise_plus:
         rise_plus_dict = {
             'net':None, 'segmenter':'grid', 'n_seg':49, 'sampler':'random',
-            'perturber':'black', 'sample_size':None, 'softmax':True,
+            'perturber':'norm_zero', 'sample_size':None, 'softmax':True,
             'blur':False, 
             'explainers':['rise', 'lime', 'shap', 'pda', 'ciu', 'inverse_ciu'],
             'attribution_types':['segments', 'pixels'], 'fraction':1,
@@ -557,8 +387,10 @@ def main():
         experiment_dicts = [
             # Test RISE setup with different samples sizes and samplers
             {'fraction':0.02},
+            {'sample_size':None, 'fraction':0.02},
             {'sample_size':400, 'fraction':0.02},
             {'fraction':0.02, 'sampler':'shap'},
+            {'fraction':0.02, 'sampler':'shap', 'sample_size':None},
             {'fraction':0.02, 'sampler':'shap', 'sample_size':400},
             {
                 'fraction':0.02, 'sampler':'single_feature',
@@ -571,12 +403,20 @@ def main():
             # Same experiments but use gaussian blur instead of bilinear
             {'fraction':0.02, 'blur':True, 'segmenter_kw':{}},
             {
+                'sample_size':None, 'fraction':0.02, 'blur':True,
+                'segmenter_kw':{}
+            },
+            {
                 'sample_size':400, 'fraction':0.02, 'blur':True,
                 'segmenter_kw':{}
             },
             {
                 'fraction':0.02, 'sampler':'shap', 'blur':True,
                 'segmenter_kw':{}
+            },
+            {
+                'fraction':0.02, 'sampler':'shap', 'sample_size':None,
+                'blur':True, 'segmenter_kw':{}
             },
             {
                 'fraction':0.02, 'sampler':'shap', 'sample_size':400,
@@ -598,7 +438,11 @@ def main():
                 'segmenter_kw':{}
             },
             {
-                'sample_size':50, 'fraction':0.02, 'blur':True,
+                'sample_size':None, 'fraction':0.02, 'blur':True,
+                'segmenter':'slic', 'segmenter_kw':{}
+            },
+            {
+                'sample_size':400, 'fraction':0.02, 'blur':True,
                 'segmenter':'slic', 'segmenter_kw':{}
             },
             {
@@ -606,7 +450,11 @@ def main():
                 'segmenter':'slic', 'segmenter_kw':{}
             },
             {
-                'fraction':0.02, 'sampler':'shap', 'sample_size':50,
+                'fraction':0.02, 'sampler':'shap', 'sample_size':None,
+                'blur':True, 'segmenter':'slic', 'segmenter_kw':{}
+            },
+            {
+                'fraction':0.02, 'sampler':'shap', 'sample_size':400,
                 'blur':True, 'segmenter':'slic', 'segmenter_kw':{}
             },
             {
@@ -705,6 +553,8 @@ def main():
             perturber = SingleColorPerturber((0,0,0))
         elif perturber == 'gray':
             perturber = SingleColorPerturber((0.75,0.75,0.75))
+        elif perturber == 'norm_zero':
+            perturber = SingleColorPerturber((0.485, 0.456, 0.406))
         elif perturber == 'mean':
             perturber = SingleColorPerturber('mean')
         elif perturber == 'histogram':
