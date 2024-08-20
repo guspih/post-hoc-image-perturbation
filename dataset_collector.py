@@ -165,15 +165,21 @@ def coco2014_collector(split='train', **kwargs):
                 'Files are missing. Set \'download\' to True to automatically '
                 'download them'
             )
-        filename = root_folder/f'COCO2014/{split}2014.zip'
-        if not os.path.isfile(filename):
-            download_raw_url(
-                url=f'http://images.cocodataset.org/zips/{split}2014.zip',
-                save_path=filename
+        urls = [f'http://images.cocodataset.org/zips/{split}2014.zip']
+        filenames = [root_folder/f'COCO2014/{split}2014.zip']
+        if split != 'test':
+            urls.append(
+                'http://images.cocodataset.org/annotations/annotations_trainval2014.zip'
             )
-        with zipfile.ZipFile(filename, 'r') as zip_ref:
-            zip_ref.extractall(root_folder/'COCO2014')
-        os.remove(filename)
+            filenames.append(
+                root_folder/f'COCO2014/annotations_trainval2014.zip'
+            )
+        for url, filename in zip(urls, filenames):
+            if not os.path.isfile(filename):
+                download_raw_url(url=url, save_path=filename)
+            with zipfile.ZipFile(filename, 'r') as zip_ref:
+                zip_ref.extractall(root_folder/'COCO2014')
+            os.remove(filename)
     return MultipleFolderDataset(
         root_folder/f'COCO2014/{split}2014',
         image_transform=kwargs.get('image_transform')
@@ -222,7 +228,6 @@ def imagenet1K2012_collector(split='train', **kwargs):
         split=split,
         **kwargs
     )
-    
     return data
 
 
