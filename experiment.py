@@ -63,6 +63,30 @@ def run_auc_experiment(
     auc_sample_size=10, use_true_class=False, fraction=1, version=0,
     num_workers=10, compile=False, verbose=False
 ):
+    '''
+    Initializes an occlusion Area Under the Curve evaluation of an image 
+    attribution pipeline with the given parameters. Excludes any parameter
+    combination for which results already exists. Evaluates the LIF, MIF,
+    and SRG metrics of remaining combinations on the ImageNet validation set.
+    Records the paramters and results in 'imagenet_auc_results.csv'
+    Args:
+        segmenter (callable): Return [H,W], [S,H,W] segments and S masks
+        sampler (callable): Return [N,S] N samples of segments to perturb
+        perturber (callable): Return [M,H,W,C], [M,S] perturbed images, samples
+        model (callable): Return [X,1000] class prediction for image [X,H,W,C]
+        explainers [callable]: List of explainers that calculate attribution
+        sample_size (int): The nr N of samples to use to perturb
+        attribution_types [str]: List of 'segment' and/or 'pixel' attribution
+        auc_perturber (callable): Perturber used to calculate occlusion metrics
+        auc_sample_size (int): Nr of occlusion steps to use for metrics
+        use_true_class (bool): Explain the label instead of top predicted class
+        fraction (int): Fraction of the validation set to use for evaluation
+        version (int): Version used to separate runs with the same parameters
+        num_workers (int): Nr of worker processes used to load data
+        compile (bool): Whether to use torch.compile to improve computation
+        verbose (bool): Whether to print the evaluation progress
+    '''
+
     # Create pipeline
     prediction_pipeline = SegmentationPredictionPipeline(
         segmenter, sampler, perturber, batch_size=128
@@ -247,7 +271,8 @@ def run_auc_experiment(
             results_writer.writerow(
                 id+[timestamp]+[nr_model_calls]+[correct/total_num]+ret[j]
             )
-    print()
+    if verbose:
+        print()
     return
 
 
@@ -628,6 +653,12 @@ def main():
 
 
 def cancast(val):
+    '''
+    Casts numbers as floats and bool strings as bools, else returns input as is
+    Args:
+        val (any): Input to parse
+    Returns (any): The input cast to float, bool, or without change.
+    '''
     try:
         return float(val)
     except ValueError:
