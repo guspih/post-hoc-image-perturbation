@@ -13,31 +13,31 @@ import argparse
 import itertools
 
 # Import samplers
-from samplers import (
+from post_hoc.samplers import (
     RandomSampler, SingleFeatureSampler, ShapSampler, SampleProbabilitySampler
 )
 # Import explainers
-from explainers import (
+from post_hoc.explainers import (
     OriginalCIUAttributer, SHAPAttributer, RISEAttributer,
     LinearLIMEAttributer, PDAAttributer
 )
 # Import segmenters
-from image_segmenters import GridSegmenter, WrapperSegmenter, FadeMaskSegmenter
+from post_hoc.image_segmenters import GridSegmenter, WrapperSegmenter, FadeMaskSegmenter
 # Import segmentation and perturbation utils
-from image_segmenters import perturbation_masks
+from post_hoc.image_segmenters import perturbation_masks
 # Import image perturbers
-from image_perturbers import (
+from post_hoc.image_perturbers import (
     SingleColorPerturber, ReplaceImagePerturber, TransformPerturber,
     RandomColorPerturber, ColorHistogramPerturber, Cv2InpaintPerturber
 )
 # Import connectors
-from connectors import SegmentationPredictionPipeline
+from post_hoc.connectors import SegmentationPredictionPipeline
 # Import PyTorch utils
-from torch_utils import TorchModelWrapper, ImageToTorch
+from post_hoc.torch_utils import TorchModelWrapper, ImageToTorch
 # Import explanation evaluators
-from evaluation import ImageAUCEvaluator, PointingGameEvaluator
+from post_hoc.evaluation import ImageAUCEvaluator
 # Import dataset handler
-from dataset_collector import dataset_collector
+from post_hoc.dataset_collector import dataset_collector
 
 # Set logging folder
 from workspace_path import home_path
@@ -226,6 +226,7 @@ def run_auc_experiment(
             for j, (explainer, attribution_type) in enumerate(tests):
                 # Get explanations and calculate the pixel-wise attribution
                 attribution = explainer(ys[:, target], samples)[-2]
+                attribution = np.round(attribution, 9) #Less rounding issues
                 if attribution_type == 'segments':
                     masks = prediction_pipeline.masks
                 else:
@@ -328,7 +329,7 @@ def main():
         help='Which methods to use to calculate attribution of the segments'
     )
     parser.add_argument(
-        '--sample_sizes', type=int, nargs='+', default=[100], metavar='Nr',
+        '--sample_sizes', type=int, nargs='+', default=[None], metavar='Nr',
         help='The sample sizes (if applicable) used when sampling'
     )
     parser.add_argument(
