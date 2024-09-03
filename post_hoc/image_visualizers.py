@@ -12,6 +12,7 @@ class TopVisualizer():
     lower attributed segments. How many top segments to display can be set as
     a specific nr (k), fraction of total attribution (p), percentage of
     segments (percent), or segments with attribution above a given treshold.
+
     Args:
         k (int): Nr of top segments to display
         p (float): Display segments with total attribution at least p
@@ -84,6 +85,7 @@ class HeatmapVisualizer():
     '''
     Creates a numpy images showing the attribution of the image by creating a
     heatmap overlaid on top of the original image.
+
     Args:
         normalize (bool): Whether to normalize attributions in range [0,1]
         image_weight (float): How visible should the image be under the heatmap

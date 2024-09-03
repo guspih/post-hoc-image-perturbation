@@ -10,6 +10,7 @@ class SingleColorPerturber():
     by 0 and values between 0 and 1 will fade between their current color and
     the given color. If color is 'mean' or 'median' the color is instead chosen
     as the mean or median of the image.
+
     Args:
         color (float,float,float): The color to replace pixels or mean/median
     '''
@@ -61,6 +62,7 @@ class ReplaceImagePerturber():
     Pixels to replace indicated by 0 and values between 0 and 1 will fade
     between the color of the corresponding pixels. If replace_images is None
     the replace images are expected as part of the call.
+
     Args:
         replace_images (array): [X,H,W,C] array with alternative images or None
         one_each (bool): If True, each perturbed image has a given replacement
@@ -113,6 +115,7 @@ class TransformPerturber():
     by each perturbation mask with the corresponding pixel from a transformed
     version of the image. Pixels to replace indicated by 0 and values between
     0 and 1 will fade between the color of the corresponding pixels.
+
     Args:
         transform (callable): Callable that takes image and transforms it
         kwargs: Additional arguments for the transform
@@ -151,6 +154,7 @@ class Cv2InpaintPerturber():
     '''
     Creates perturbed versions of the image by inpainting the pixels indicated
     by 0 using either of the two inpainting methods implemented by OpenCV.
+
     Args:
         radius (int): The radius around the masked pixels to also be inpainted
         mode (str): The inpainting method, either "telea" or "bertalmio"
@@ -197,6 +201,7 @@ class ColorHistogramPerturber():
     of the image chosen randomly weighted by the size of the bins. Pixels to
     replace indicated by 0 and values between 0 and 1 will fade between the
     color of the corresponding pixels.
+
     Args:
         nr_bins (int): The number of bins to split each color channel into
     '''
@@ -258,6 +263,7 @@ class RandomColorPerturber():
     and values between 0 and 1 will fade between their current color and the
     drawn color. Colors are drawn by selecting a random pixel or uniformly from
     the RGB domain. The perturbed images can use the same color or one each.
+
     Args:
         uniform_rgb (bool): Whether to draw the random color uniformly from RGB
         draw_for_each (bool): Whether to randomize a color for each 
@@ -305,6 +311,7 @@ def replace_image_perturbation(
     by each perturbation mask with the corresponding pixel from other images.
     Pixels to replace indicated by 0 and values between 0 and 1 will fade
     between the color of the corresponding pixels.
+
     Args:
         image (array): [H,W,C] array with the image to perturb
         sample_masks (array): [N,H,W] array of masks in [0,1]

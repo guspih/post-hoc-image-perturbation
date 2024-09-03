@@ -8,6 +8,7 @@ class WrapperSegmenter():
     '''
     Segments an image using a given segmentation function that returns a [H,W]
     array and then splits that array into a mask per segment.
+
     Args:
         segmenter (callable): Callable segmenter with image as 1st argument
         **kwargs: Additional arguments to pass to the segmenter
@@ -42,6 +43,7 @@ class WrapperSegmenter():
 class GridSegmenter():
     '''
     Segments an image into a grid with a given amount of rows and columns.
+
     Args:
         h_segments (int): Nr of horizontal divisions (columns) of the image
         v_segments (int): Nr of vertical divisions (rows) of the image
@@ -91,6 +93,7 @@ class FadeMaskSegmenter():
     Segments an image using the wrapped segmenter and then smoothens the edges
     of the segmentation masks by applying a gaussian filter. The faded masks
     have values between 0 and 1 indicating the strength of pertubation to use.
+
     Args:
         segmenter (callable): Segments the image into segment masks
         sigma (float/(float,float)): St.dev.(s) for the gaussian filter
@@ -127,6 +130,7 @@ class FadeMaskSegmenter():
 def segments_to_masks(segments):
     '''
     Takes a segmented image and creates an array of masks for each segment.
+
     Args:
         segments (array): [H,W] array of pixels labeled by 1 of S segments
     Returns (array): [S,H,W] array with 0/1 masks for each of the S segments
@@ -146,6 +150,7 @@ def perturbation_masks(segment_masks, samples):
     Creates images masks indicating where the image should be perturbed using
     masks indicating where each segment is and rows of samples denoting which
     segments to include in each sample.
+
     Args:
         segment_masks (array): [S,H,W] array with masks for each segment
         samples (array): [N,S] array with 0 indicating the segments to perturb

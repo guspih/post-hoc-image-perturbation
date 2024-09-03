@@ -6,6 +6,7 @@ import torch.nn as nn
 class TorchModelWrapper(nn.Module):
     '''
     Wraps around a PyTorch model and makes it work with numpy code.
+
     Args:
         model (callable): The PyTorch model to wrap
         input_transforms (callable): Transforms to apply to input before model

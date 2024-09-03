@@ -8,6 +8,7 @@ class RandomSampler():
     '''
     Creates an array of samples where each feature is included (=1) with a
     given probability and to be perturbed (=0) otherwise.
+
     Args:
         p (float): Probability in [0,1] that a feature is included a sample
     '''
@@ -36,6 +37,7 @@ class SampleProbabilitySampler():
     drawn from a given distribution. Available distributions are 'uniform',
     'normal' (truncated), and 'beta'. The distribution probabilities can be 
     inversed.
+
     Args:
         distribution (str): The distribution to draw p for each sample from
         inverse (bool): If True, samples are drawn using 1-p instead
@@ -90,6 +92,7 @@ class SingleFeatureSampler():
     indicated to be perturbed (set to 0) or, if inverse, is indicated to not be
     perturbed (set to 1). Optionally, adds the samples where all/no features
     are perturbed.
+
     Args:
         inverse (bool): Whether all features but one should be set to 0 (True)
         add_all (bool): If True, adds a sample where all features are perturbed
@@ -136,6 +139,7 @@ class ShapSampler():
     which to include (1) of a given size. Will first create all samples with
     all values the same, then all with a single feature included/perturbed,
     then all with two feature included/perturbed, and so on.
+
     Args:
         inverse (bool): Whether to order the many perturbations first instead
         ignore_warnings (bool): Ignores unbalanced sample_size warnings if True

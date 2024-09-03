@@ -37,7 +37,7 @@ from post_hoc.torch_utils import TorchModelWrapper, ImageToTorch
 # Import explanation evaluators
 from post_hoc.evaluation import ImageAUCEvaluator
 # Import dataset handler
-from post_hoc.dataset_collector import dataset_collector
+from dataset_collector import dataset_collector
 
 # Set logging folder
 from workspace_path import home_path

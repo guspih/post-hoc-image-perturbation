@@ -9,6 +9,7 @@ class OriginalCIUAttributer():
     py.ciu.image package. Inverse importance is primarily used with inverse
     inverse sampling (see naive_ciu_sampler). Expected utility is used in
     influence calculation to determine which features have positive influence.
+
     Args:
         inverse (bool): Whether to calculate importance as 1-importance
         expected_util (float/[float]]): Sets the baseline for influence>0
@@ -72,6 +73,7 @@ class CIUAttributer():
     the minumum Y where the inputs where only some or none of the given
     features have been perturbed. Influence is the utility subtracted by the
     expected utility and then scaled by the importance.
+
     Args:
         expected_util (float/[float]]): Sets the baseline for influence>0
         return_samples (array): [X,M] array indicating features for attribution
@@ -196,6 +198,7 @@ class PDAAttributer():
     Mode 'probdiff' uses the difference directly, 'infodiff' the difference
     between log2(probability), and 'evidence' the difference between
     log2(probability/(1-probability)).
+
     Args:
         divide_weight (bool): If True, weight of Y[n] is 1/sum(Z[n])
         mode (str): PDA mode to use ('probdiff', 'infodiff', 'evidence')
@@ -260,6 +263,7 @@ def shap_kernel(M, s):
     '''
     Hepler function for KernelSHAP that calculates the weight of a sample using
     the nr of features (M) and the nr of included features in each sample (s).
+    
     Args:
         M (int): The number of features in the sample
         s (array): [N] array of the number of included features in each sample

@@ -128,6 +128,7 @@ def auc_sampler(vals, sample_size=None, mif=False, ignore_ends=False):
     as determined by a given attribution array, are deleted first. Deleting
     the least influential fisrst (lif) is equivalent to inserting the most 
     influential first (insertion score).
+
     Args:
         vals (array): The attribution scores of the different features
         sample_size (int): Nr of samples to generate (<=len(vals))
