@@ -1,9 +1,7 @@
 import numpy as np
 
-from image_perturbers import SingleColorPerturber
-from image_segmenters import perturbation_masks
-
-import matplotlib.pyplot as plt
+from .image_perturbers import SingleColorPerturber
+from .image_segmenters import perturbation_masks
 
 #Evaluators
 class ImageAUCEvaluator():
@@ -12,6 +10,7 @@ class ImageAUCEvaluator():
     deletion curve by deleting pixels/segments from most to least attributed
     (mif) or deleting the least attributed first (lif). Can also calculate both
     and return the difference between them (srg).
+    
     Args:
         mode (str): Which score to calculate. 'mif'/'lif' are included in 'srg'
         perturber (callable): Perturber used to remove the segments
@@ -86,7 +85,7 @@ class ImageAUCEvaluator():
             ret.append(curves)
         if self.return_visuals:
             ret.append(visuals)
-        return ret[0] if len(ret) ==1 else ret
+        return ret[0] if len(ret) == 1 else ret
     
     def get_normalized(self):
         curves = []

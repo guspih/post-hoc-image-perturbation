@@ -26,11 +26,13 @@ def dataset_collector(dataset, split, **kwargs):
     '''
     Wrapper for all collectors, will use the datasets dict to see if a given
     dataset and split is available and return it using its specified collector.
+
     Args:
         dataset (str): Key for the dataset in the datasets dict
         split (str): An available split for the given dataset
         **kwargs (dict): Any additional parameters
-    Returns (torch.utils.data.Dataset)
+    Returns:
+        torch.utils.data.Dataset: The collected dataset
     '''
     if dataset not in datasets:
         available_datasets = ', '.join(datasets.keys())
@@ -58,10 +60,12 @@ def torchvision_collector(dataset, **kwargs):
     '''
     Function for collecting and, if necessary, downloading torchvision datasets
     Available datasets are 'STL19', 'SVHN', and 'VOCDetection'.
+
     Args:
         dataset (str): The dataset to collect
         **kwargs (dict): Any additional parameters for collection
-    Returns (torch.utils.data.Dataset)
+    Returns:
+        torch.utils.data.Dataset: The collected Torchvision dataset
     '''
     if datasets[dataset]['downloadable'] and 'download' not in kwargs:
         kwargs['download'] = True
@@ -73,10 +77,12 @@ def isbi12_collector(split='train', **kwargs):
     Function for collecting and, if necessary, explaining how to download and
     package the ISBI12 (Segmentation of neuronal structures in EM stacks)
     dataset.
+
     Args:
         split (str): Which split to collect ('train' or 'unlabeled')
         **kwargs (dict): Any additional parameters for collection
-    Returns (torch.utils.data.Dataset)
+    Returns:
+        torch.utils.data.Dataset: The given split of the ISBI dataset
     '''
     if 'download' not in kwargs:
         kwargs['download'] = True
@@ -113,10 +119,12 @@ def mrd_collector(split='train', **kwargs):
     '''
     Function for collecting and, if necessary, downloading the Massachusetts
     Roads Dataset.
+
     Args:
         split (str): Which split to collect ('train' or 'test')
         **kwargs (dict): Any additional parameters for collection
-    Returns (torch.utils.data.Dataset)
+    Returns:
+        torch.utils.data.Dataset: The given split of the MRD dataset
     '''
     (root_folder/'MRD').mkdir(parents=True, exist_ok=True)
     # This kaggle dataset does not have labels for all images, just fyi
@@ -147,12 +155,14 @@ def mrd_collector(split='train', **kwargs):
 
 def coco2014_collector(split='train', **kwargs):
     '''
-    Function for collecting and, if necessary, downloading the MSCOCO 2014.
-    dataset
+    Function for collecting and, if necessary, downloading the MSCOCO 2014
+    dataset.
+
     Args:
         split (str): Which split to collect ('train', 'val', or 'test')
         **kwargs (dict): Any additional parameters for collection
-    Returns (torch.utils.data.Dataset)
+    Returns:
+        torch.utils.data.Dataset: The given split of the MSCOCO dataset
     '''
     (root_folder/'COCO2014/train2014').mkdir(parents=True, exist_ok=True)
     (root_folder/'COCO2014/val2014').mkdir(parents=True, exist_ok=True)
@@ -190,10 +200,12 @@ def imagenet1K2012_collector(split='train', **kwargs):
     '''
     Function for collecting and, if necessary, downloading the ImageNet1K 2012
     dataset. The test set can be downloaded, but is not usable in torchvision.
+
     Args:
         split (str): Which split to collect ('train', 'val', or 'test')
         **kwargs (dict): Any additional parameters for collection
-    Returns (torch.utils.data.Dataset)
+    Returns:
+        torch.utils.data.Dataset: The given split of the ImageNet dataset
     '''
     (root_folder/f'IMAGENET1K2012/{split}').mkdir(parents=True, exist_ok=True)
     if split == 'test':
@@ -234,11 +246,13 @@ def imagenet1K2012_collector(split='train', **kwargs):
 def bapps_collector(split='train', subsplit='all', **kwargs):
     '''
     Function for collecting and, if necessary, downloading the BAPPS dataset.
+
     Args:
         split (str): Which split to collect ('train', 'val', 'jnd/val')
         subsplit (str): Which subsplit to collect ('all' collects all)
         **kwargs (dict): Any additional parameters for collection
-    Returns (torch.utils.data.Dataset)
+    Returns:
+        torch.utils.data.Dataset: The given split of the BAPPS dataset
     '''
     (root_folder/'BAPPS/train').mkdir(parents=True, exist_ok=True)
     (root_folder/'BAPPS/val').mkdir(parents=True, exist_ok=True)
@@ -359,6 +373,7 @@ def download_raw_url(url, save_path, show=False, chunk_size=128, decode=False):
     '''
     Downloads raw data from url. Reworked from:
     https://stackoverflow.com/questions/9419162/download-returned-zip-file-from-url
+
     Args:
         url (str): Url of raw data
         save_path (str): File name to store data under
@@ -378,7 +393,9 @@ def download_raw_url(url, save_path, show=False, chunk_size=128, decode=False):
 def _kaggle_init():
     '''
     Prepares and returns a Kaggle API using keys in api_keys.csv
-    Returns (KaggleApi): A prepared and authenticated Kaggle API
+
+    Returns:
+        KaggleApi: A prepared and authenticated Kaggle API
     '''
     keyfile = home_path/'api_keys.csv'
     if not keyfile.is_file():
@@ -412,6 +429,8 @@ def _kaggle_init():
 def kaggle_download(dataset, path, **kwargs):
     '''
     Downloads a given dataset from kaggle to a given folder.
+    
+    Args:
         dataset (str): Dataset to download
         path (str): Path to folder of dataset
         **kwargs (dict): Any additional parameters for downloading
@@ -426,6 +445,7 @@ class MultipleFolderDataset(Dataset):
     matching group of data has the same name (with possibly different
     file-endings).
     Allowed file types: .png, .tif, .tiff, .jpg, .jpeg, .bmp, .npy 
+
     Args:
         *args (str): Paths to the folders to extract from
         name (str): A name to be returned together with each datapoint

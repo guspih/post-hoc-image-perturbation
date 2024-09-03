@@ -40,6 +40,8 @@ class OriginalCIUAttributer():
         min_importance[:] = true_y
         max_importance[:] = true_y
         for y, z in zip(Y,Z):
+            if self.inverse:
+                y = 1-y
             point_position = z==point
             nr_points = np.sum(point_position)
             if nr_points > 1 and nr_points < M:
@@ -53,10 +55,10 @@ class OriginalCIUAttributer():
             min_importance[point_position & (min_importance>y)] = y
             max_importance[point_position & (max_importance<y)] = y
         importance = (max_importance-min_importance)
-        utility = (true_y - min_importance)/importance
-        importance = importance/(np.max(Y)-np.min(Y))
-        if self.inverse:
-            importance = 1-importance
+        utility = (true_y - min_importance)/(importance+1e-12)
+        importance = importance/(np.max(Y)-np.min(Y)+1e-12)
+        #if self.inverse:
+        #    importance = 1-importance
         influence = importance*(utility-self.expected_util)
         return importance, utility, influence, np.eye(M)
 
@@ -109,8 +111,8 @@ class CIUAttributer():
                     if min_importance[i] > y: min_importance[i] = y
                     if max_importance[i] < y: max_importance[i] = y
         importance = (max_importance-min_importance)
-        utility = (true_y - min_importance)/importance
-        importance = importance/(np.max(Y)-np.min(Y))
+        utility = (true_y - min_importance)/(importance+1e-12)
+        importance = importance/(np.max(Y)-np.min(Y)+1e-12)
         influence = importance*(utility-self.expected_util)
         return importance, utility, influence, unique_Z
 

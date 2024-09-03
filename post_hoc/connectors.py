@@ -1,11 +1,12 @@
 import numpy as np
 
-from image_segmenters import perturbation_masks
+from .image_segmenters import perturbation_masks
 
 class SegmentationPredictionPipeline():
     '''
     Creates an image perturbation pipeline that automatically performs and
     connects segmentation, sampling, perturbing, and model prediction.
+
     Args:
         segmenter (callable): Return [H,W], [S,H,W] segments and S masks
         sampler (callable): Return [N,S] N samples of segments to perturb
@@ -30,9 +31,9 @@ class SegmentationPredictionPipeline():
             image (array): the [H,W,C] image to explain via attribution
             model (callable): The prediction model returning [M,O] for output O
             sample_size (int): The nr N of perturbed images to use to attribute
-        Returns (array, array):
-            [M,O] model output for each of the [M,H,W,C] perturbed images
-            [M,S] samples indicating the perturbed segments in each image
+        Returns:
+            array: [M,O] output for each of the [M,H,W,C] perturbed images
+            array: [M,S] samples indexing the perturbed segments of the images
         '''
         segments, self.masks, self.transformed_masks = self.segmenter(image)
         self.samples = self.sampler(len(self.transformed_masks), sample_size)
@@ -68,6 +69,7 @@ class SegmentationAttribuitionPipeline():
     Creates an image attribution pipeline that automatically performs and
     connects segmentation, sampling, perturbing, model prediction, and 
     attribution.
+
     Args:
         segmenter (callable): Return [H,W], [S,H,W] segments and S masks
         sampler (callable): Return [N,S] N samples of segments to perturb
@@ -110,8 +112,8 @@ class SegmentationAttribuitionPipeline():
             model (callable): The prediction model returning [M,O] for output O
             sample_size (int): The nr N of samples to use to perturb
         Returns (Any, (array, optional)): 
-            List of explainer outputs for each model output O
-            List of [H,W] maps of attribution per pixel (if self.per_pixel)
+            any: List of explainer outputs for each model output O
+            array, optional: List of [H,W] maps of attribution per pixel
         '''
         self.ys, perturbed_samples = self.prediction_pipeline(
             image, model, sample_size

@@ -2,8 +2,8 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-from image_perturbers import SingleColorPerturber, ReplaceImagePerturber
-from image_segmenters import perturbation_masks
+from .image_perturbers import SingleColorPerturber, ReplaceImagePerturber
+from .image_segmenters import perturbation_masks
 
 
 class TopVisualizer():
