@@ -24,7 +24,8 @@ class RandomSampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: [sample_size, M] array indicating the features to perturb
+        Returns: 
+            array: [sample_size, M] index of the features to perturb per sample
         '''
         if sample_size is None:
             sample_size = M
@@ -65,7 +66,8 @@ class SampleProbabilitySampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: [sample_size, M] array indicating the features to perturb
+        Returns: 
+            array: [sample_size, M] index of the features to perturb per sample
         '''
         if sample_size is None:
             sample_size = M
@@ -113,7 +115,8 @@ class SingleFeatureSampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate (=M+1)
-        Returns: [M+1,M] array indicating the features to perturb
+        Returns:
+            array: [M(+1/+2),M] index of the features to perturb per sample
         '''
         if sample_size is None:
             sample_size = M
@@ -157,7 +160,8 @@ class ShapSampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: [sample_size, M] array indicating the features to perturb
+        Returns: 
+            array: [sample_size, M] index of the features to perturb per sample
         '''
         if sample_size is None:
             sample_size = M+2

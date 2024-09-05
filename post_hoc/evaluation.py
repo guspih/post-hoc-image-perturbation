@@ -110,7 +110,8 @@ class PointingGameEvaluator():
             hit_mask (array): [H,W] array of true segmentations of the image
             vals (array): Array of attribution scores for each image feature
             masks (array): [S,H,W] array of segment masks (None=vals per pixel)
-        Returns (float): The Pointing Game score of the attribution
+        Returns:
+            float: The Pointing Game score of the attribution
         '''
         if not masks is None:
             vals = perturbation_masks(masks, vals)
@@ -134,7 +135,8 @@ def auc_sampler(vals, sample_size=None, mif=False, ignore_ends=False):
         sample_size (int): Nr of samples to generate (<=len(vals))
         mif (bool): If True, the most influential feature is deleted first
         ignore_ends (bool): If True, does not generate samples of all 0 or 1
-    Returns (array): [sample_size, *vals.shape] array indexing what to perturb
+    Returns:
+        array: [sample_size, *vals.shape] array indexing what to perturb
     '''
     if sample_size is None:
         sample_size = min(vals.size+1, 100)

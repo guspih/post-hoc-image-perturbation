@@ -42,9 +42,9 @@ class SingleColorPerturber():
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
-        Returns (array, array):
-            [N,H,W,C] array of perturbed versions of the image
-            [N,S] array identical to samples
+        Returns:
+            array: [N,H,W,C] the perturbed versions of the image
+            array: [N,S] identical to samples
         '''
         color = self.color
         if isinstance(color, str):
@@ -93,9 +93,9 @@ class ReplaceImagePerturber():
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
             replace_images (array): [X,H,W,C] images if None provided initially
-        Returns (array, array):
-            [N*X,H,W,C] array of perturbed versions of the image
-            [N*X,S] array indicating which segments have been perturbed
+        Returns:
+            array: [N*X,H,W,C] perturbed versions of the image
+            array: [N*X,S] index of which segments have been perturbed
         '''
         one_each = self.one_each
         if replace_images is None:
@@ -141,9 +141,9 @@ class TransformPerturber():
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
             kwargs: Additional arguments for the transform
-        Returns (array, array):
-            [N,H,W,C] array of perturbed versions of the image
-            [N,S] array identical to samples
+        Returns:
+            array: [N,H,W,C] perturbed versions of the image
+            array: [N,S] identical to samples
         '''
         replace_images = self.transform (image, **self.kwargs, **kwargs)
         return replace_image_perturbation(
@@ -181,9 +181,9 @@ class Cv2InpaintPerturber():
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
-        Returns (array, array):
-            [N,H,W,C] array of perturbed versions of the image
-            [N,S] array identical to samples
+        Returns:
+            array: [N,H,W,C] perturbed versions of the image
+            array: [N,S] identical to samples
         '''
         image = (image*255).astype(np.uint8)
         sample_masks = 1-sample_masks.round().astype(np.uint8)
@@ -218,9 +218,9 @@ class ColorHistogramPerturber():
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
-        Returns (array, array):
-            [N*X,H,W,C] array of perturbed versions of the image
-            [N*X,S] array indicating which segments have been perturbed
+        Returns:
+            array: [N*X,H,W,C] perturbed versions of the image
+            array: [N*X,S] index of which segments have been perturbed
         '''
         if np.issubdtype(image.dtype, np.integer):
             color_max = 255
@@ -282,9 +282,9 @@ class RandomColorPerturber():
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
-        Returns (array, array):
-            [N,H,W,C] array of perturbed versions of the image
-            [N,S] array identical to samples
+        Returns:
+            array: [N,H,W,C] perturbed versions of the image
+            array: [N,S] identical to samples
         ''' 
         if self.draw_for_each:
             nr = sample_masks.shape[0]
@@ -318,9 +318,9 @@ def replace_image_perturbation(
         samples (array): [N,S] array indicating the perturbed segments
         replace_images (array): [X,H,W,C] array with alternative images
         one_each (bool): If True, each perturbed image has a given replacement
-    Returns (array, array):
-        [N*X,H,W,C] array of perturbed versions of the image
-        [N*X,S] array indicating which segments have been perturbed
+    Returns:
+        array: [N*X,H,W,C] perturbed versions of the image
+        array: [N*X,S] index of which segments have been perturbed
     '''
     if len(replace_images.shape) == 4 and not one_each:
         total_samples = sample_masks.shape[0]*replace_images.shape[0]

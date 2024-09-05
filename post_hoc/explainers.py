@@ -27,11 +27,11 @@ class OriginalCIUAttributer():
         Args:
             Y (array): [N] array of all model values for the perturbed inputs
             Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns (array, array, array, array):
-            [M] array with the contextual importance of each feature
-            [M] array with the contextual utility of each feature
-            [M] array with the influence (ci*(cu-E[cu])) of each feature
-            [M,M] array indicating the feature each attribution scores maps to
+        Returns:
+            array: [M] the contextual importance of each feature
+            array: [M] the contextual utility of each feature
+            array: [M] the influence (ci*(cu-E[cu])) of each feature
+            array: [M,M] map of attribution score to feature
         '''
         M = Z.shape[1]
         point = 1 if self.inverse else 0
@@ -92,10 +92,10 @@ class CIUAttributer():
             Y (array): [N] array of all model values for the perturbed inputs
             Z (array): [N,M] array indicating which features were perturbed (0)
         Returns (array, array, array, array):
-            [X] array with the context importance of given feature combinations
-            [X] array with the context utility of given feature combinations
-            [X] array with the influence (ci*(cu-E[cu])) of the combinations
-            [X,M] array mapping attribution scores to feature combinations
+            array: [X] the context importance of given feature combinations
+            array: [X] the context utility of given feature combinations
+            array: [X] the influence (ci*(cu-E[cu])) of the combinations
+            array: [X,M] map from attribution scores to feature combinations
         '''
         M = Z.shape[1]
         if self.return_samples is None:
@@ -133,10 +133,10 @@ class SHAPAttributer():
         Args:
             Y (array): [N] array of all model values for the perturbed inputs
             Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns (array, float, array):
-            SHAP base value, approx. the value if all features are perturbed
-            [M] array with the SHAP values of each feature
-            [M,M] array mapping attribution scores to features
+        Returns:
+            float: SHAP base value, approx. value if all features are perturbed
+            array: [M] the SHAP values of each feature
+            array: [M,M] map from attribution scores to features
         '''
         M = Z.shape[1]
         S = Z.sum(axis=1)
@@ -162,9 +162,9 @@ class RISEAttributer():
         Args:
             Y (array): [N] array of all model values for the perturbed inputs
             Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns (array, float, array):
-            [M] array with the RISE attribution values of each feature
-            [M,M] array mapping attribution scores to features
+        Returns:
+            array: [M] the RISE attribution values of each feature
+            array: [M,M] map from attribution scores to features
         '''
         importance = np.sum(Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))),axis=0)
         occurance = np.sum(Z, axis=0)
@@ -183,9 +183,9 @@ class LinearLIMEAttributer():
         Args:
             Y (array): [N] array of all model values for the perturbed inputs
             Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns (array, float, array):
-            [M] array of the surrogate weights used as attributions
-            [M,M] array mapping attribution scores to features
+        Returns:
+            array: [M] the surrogate weights used as attributions
+            array: [M,M] map fromattribution scores to features
         '''
         Z = np.concatenate((Z, torch.ones((Z.shape[0], 1))), axis=1)
         return np.linalg.lstsq(Z, Y, rcond=None)[0][:-1], np.eye(Z.shape[1])
@@ -228,9 +228,9 @@ class PDAAttributer():
         Args:
             Y (array): [N] array of all model values for the perturbed inputs
             Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns (array, float, array):
-            [M] array with the PDA values of each feature
-            [M,M] array mapping attribution scores to features
+        Returns:
+            array: [M] the PDA values of each feature
+            array: [M,M] map from attribution scores to features
         '''
         M = Z.shape[1]
         max_Y = np.max(Y)
@@ -267,7 +267,8 @@ def shap_kernel(M, s):
     Args:
         M (int): The number of features in the sample
         s (array): [N] array of the number of included features in each sample
-    Returns (array): [N] array witht the SHAP kernel values for each s given M
+    Returns:
+        array: [N] the SHAP kernel values for each s given M
     '''
     return np.nan_to_num(
         (M - 1) / (scipy.special.binom(M, s) * s * (M - s)),

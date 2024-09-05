@@ -31,7 +31,7 @@ class WrapperSegmenter():
         Args:
             image (array): The image to segment as an array of shape [H,W,C]
             **kwargs: Additional arguments for the segmenter
-        Returns (array, array): 
+        Returns (array, array, array): 
             [H,W] array of segment indices
             [S,H,W] array with masks for each of the S segments
             [S,H,W] array with masks for each of the S segments
@@ -62,9 +62,9 @@ class GridSegmenter():
         '''
         Args:
             image (array): The image to segment as an array of shape [H,W,C]
-        Returns (array, array): 
+        Returns (array, array, array): 
             [H,W] array of segment indices
-            [S,H,W] array with masks for each of the S segments
+            [S,H,W] array with unfaded masks for each of the S segments
             [S,H,W] array with masks for each of the S segments
         '''
         h_size, v_size = image.shape[0:2]
@@ -113,10 +113,10 @@ class FadeMaskSegmenter():
         '''
         Args:
             image (array): The image to segment as an array of shape [H,W,C]
-        Returns (array, array): 
+        Returns (array, array, array): 
             [H,W] array of segment indices
-            [S,H,W] array with masks for each of the S segments
-            [S,H,W] array with masks for each of the S segments
+            [S,H,W] array with unfaded masks for each of the S segments
+            [S,H,W] array with faded masks for each of the S segments
         '''
         segments, segment_masks, transformed_masks = self.segmenter(image)
         transformed_masks = gaussian_filter(

@@ -41,7 +41,8 @@ class TorchModelWrapper(nn.Module):
         '''
         Args:
             x (array): Input to pass through the model after transforms
-        Returns (array): Output of the model
+        Returns: 
+            array: Output of the model
         '''
         x = self.input_transforms(x)
         if self.gpu:

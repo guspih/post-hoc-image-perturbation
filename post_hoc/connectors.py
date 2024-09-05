@@ -111,7 +111,7 @@ class SegmentationAttribuitionPipeline():
             image (array): the [H,W,C] image to explain via attribution
             model (callable): The prediction model returning [M,O] for output O
             sample_size (int): The nr N of samples to use to perturb
-        Returns (Any, (array, optional)): 
+        Returns: 
             any: List of explainer outputs for each model output O
             array, optional: List of [H,W] maps of attribution per pixel
         '''

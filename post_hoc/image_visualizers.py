@@ -49,7 +49,8 @@ class TopVisualizer():
             values (array): [S] array of attribution scores per segment
             image (array): Image to visualize attribution for of shape [H,W,C]
             masks (array): [S,H,W] array of 0/1 masks for the segments
-        Returns (array): [H,W,C] array visualizing the attribution on the image
+        Returns:
+            array: [H,W,C] image visualizing the attribution on the image
         '''
         if len(vals.shape) == 3:
             vals = np.squeeze(vals, axis=0)
@@ -108,7 +109,8 @@ class HeatmapVisualizer():
             values (array): Array of attribution scores
             image (array): Image to visualize attribution for of shape [H,W,C]
             masks (array): [S,H,W] array of 0/1 masks for the segments
-        Returns (array): [H,W,C] array visualizing the attribution on the image
+        Returns:
+            array: [H,W,C] image visualizing the attribution on the image
         '''
         if masks is None:
             heatmap = vals
