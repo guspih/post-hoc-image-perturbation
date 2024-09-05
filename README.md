@@ -17,14 +17,14 @@ In addition the code uses the following Python packages:
 | `opencv` (`cv2`) | `4.7.0`        | Image processing                              |
 | `matplotlib`     | `3.8.4`        | Image attribution visualization and showcases |
 
-The code works with and without GPU, though running autmated experiments is significantly faster with GPU and debilitatingly slow without.
+The code works with and without GPU, though running automated experiments is significantly faster with GPU and debilitatingly slow without.
 
 ## Usage
 
 How the different components of this repository can be used to create image explanation pipelines is showcased in the `torchvision_showcase` notebooks.
 `torchvision_showcase.ipynb` notebook shows how the different objects can be instantiated and called one-by-one using eachother's outputs to finally calculate attribution scores.
 `torchvision_showcase_2.ipynb` contains a similar example to the first but show how the same results can be achieved easier by using the provided wrapper objects.
-Further information about the many components, what they do, and how they combine can be found in [...].
+Further information about the many components, what they do, and how they combine can be found in `docs/build/html/index.html`.
 
 The experiments that this repository is used for can be automatically run using `experiment.py`.
 Calling `python experiment.py --help` returns instructions for how to run experiments.
