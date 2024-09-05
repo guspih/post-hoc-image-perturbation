@@ -1,0 +1,17 @@
+ReplaceImagePerturber
+=====================
+
+.. currentmodule:: post_hoc.image_perturbers
+
+.. autoclass:: ReplaceImagePerturber
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~ReplaceImagePerturber.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

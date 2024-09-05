@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>post_hoc &mdash; Perturbation-based Post-hoc Explanations for Image Attribution 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=fd3f3429" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=8d563738"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="SegmentationAttribuitionPipeline" href="api/post_hoc.connectors.SegmentationAttribuitionPipeline.html" />
+    <link rel="prev" title="Documentation for Perturbation-based Post-hoc Explanations for Image Attribution" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Perturbation-based Post-hoc Explanations for Image Attribution
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">post_hoc</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-connectors-module">post_hoc.connectors Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.connectors.SegmentationAttribuitionPipeline.html">SegmentationAttribuitionPipeline</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.connectors.SegmentationPredictionPipeline.html">SegmentationPredictionPipeline</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-explainers-module">post_hoc.explainers Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.explainers.CIUAttributer.html">CIUAttributer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.explainers.LinearLIMEAttributer.html">LinearLIMEAttributer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.explainers.OriginalCIUAttributer.html">OriginalCIUAttributer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.explainers.PDAAttributer.html">PDAAttributer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.explainers.RISEAttributer.html">RISEAttributer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.explainers.SHAPAttributer.html">SHAPAttributer</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-evaluation-module">post_hoc.evaluation Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.evaluation.ImageAUCEvaluator.html">ImageAUCEvaluator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.evaluation.PointingGameEvaluator.html">PointingGameEvaluator</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-image-perturbers-module">post_hoc.image_perturbers Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id3">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_perturbers.ColorHistogramPerturber.html">ColorHistogramPerturber</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_perturbers.Cv2InpaintPerturber.html">Cv2InpaintPerturber</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_perturbers.RandomColorPerturber.html">RandomColorPerturber</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_perturbers.ReplaceImagePerturber.html">ReplaceImagePerturber</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_perturbers.SingleColorPerturber.html">SingleColorPerturber</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_perturbers.TransformPerturber.html">TransformPerturber</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-image-segmenters-module">post_hoc.image_segmenters Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_segmenters.perturbation_masks.html">perturbation_masks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#id4">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_segmenters.FadeMaskSegmenter.html">FadeMaskSegmenter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_segmenters.GridSegmenter.html">GridSegmenter</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_segmenters.WrapperSegmenter.html">WrapperSegmenter</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-image-visualizers-module">post_hoc.image_visualizers Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id5">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_visualizers.AUCVisualizer.html">AUCVisualizer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_visualizers.HeatmapVisualizer.html">HeatmapVisualizer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.image_visualizers.TopVisualizer.html">TopVisualizer</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-samplers-module">post_hoc.samplers Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id6">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.samplers.RandomSampler.html">RandomSampler</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.samplers.SampleProbabilitySampler.html">SampleProbabilitySampler</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.samplers.ShapSampler.html">ShapSampler</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.samplers.SingleFeatureSampler.html">SingleFeatureSampler</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#post-hoc-torch-utils-module">post_hoc.torch_utils Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id7">Classes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.torch_utils.ImageToTorch.html">ImageToTorch</a></li>
+<li class="toctree-l4"><a class="reference internal" href="api/post_hoc.torch_utils.TorchModelWrapper.html">TorchModelWrapper</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Perturbation-based Post-hoc Explanations for Image Attribution</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">post_hoc</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/post_hoc.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="post-hoc">
+<h1>post_hoc<a class="headerlink" href="#post-hoc" title="Link to this heading"></a></h1>
+<section id="post-hoc-connectors-module">
+<span id="connectors"></span><h2>post_hoc.connectors Module<a class="headerlink" href="#post-hoc-connectors-module" title="Link to this heading"></a></h2>
+<section id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.connectors.SegmentationAttribuitionPipeline.html#post_hoc.connectors.SegmentationAttribuitionPipeline" title="post_hoc.connectors.SegmentationAttribuitionPipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SegmentationAttribuitionPipeline</span></code></a>(segmenter, ...)</p></td>
+<td><p>Creates an image attribution pipeline that automatically performs and connects segmentation, sampling, perturbing, model prediction, and attribution.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.connectors.SegmentationPredictionPipeline.html#post_hoc.connectors.SegmentationPredictionPipeline" title="post_hoc.connectors.SegmentationPredictionPipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SegmentationPredictionPipeline</span></code></a>(segmenter, ...)</p></td>
+<td><p>Creates an image perturbation pipeline that automatically performs and connects segmentation, sampling, perturbing, and model prediction.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="post-hoc-explainers-module">
+<span id="explainers"></span><h2>post_hoc.explainers Module<a class="headerlink" href="#post-hoc-explainers-module" title="Link to this heading"></a></h2>
+<section id="id1">
+<h3>Classes<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.explainers.CIUAttributer.html#post_hoc.explainers.CIUAttributer" title="post_hoc.explainers.CIUAttributer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CIUAttributer</span></code></a>([expected_util, return_samples])</p></td>
+<td><p>Calculates CIU values for each feature combination in return_samples or each feature combination in Z if return_samples is None.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.explainers.LinearLIMEAttributer.html#post_hoc.explainers.LinearLIMEAttributer" title="post_hoc.explainers.LinearLIMEAttributer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LinearLIMEAttributer</span></code></a>()</p></td>
+<td><p>Calculates attribution of each feature with LIME by fitting a linear surrogate model with the least squares method.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.explainers.OriginalCIUAttributer.html#post_hoc.explainers.OriginalCIUAttributer" title="post_hoc.explainers.OriginalCIUAttributer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OriginalCIUAttributer</span></code></a>([inverse, expected_util])</p></td>
+<td><p>Calculates CIU values without intermediate concepts according to the py.ciu.image package.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.explainers.PDAAttributer.html#post_hoc.explainers.PDAAttributer" title="post_hoc.explainers.PDAAttributer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PDAAttributer</span></code></a>([divide_weight, mode, c, n])</p></td>
+<td><p>Estimates the prediction difference analysis of each feature by calculating the difference between the true prediction and the average prediction when each feature is perturbed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.explainers.RISEAttributer.html#post_hoc.explainers.RISEAttributer" title="post_hoc.explainers.RISEAttributer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RISEAttributer</span></code></a>()</p></td>
+<td><p>Calculates the attribution as is done in the RISE method.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.explainers.SHAPAttributer.html#post_hoc.explainers.SHAPAttributer" title="post_hoc.explainers.SHAPAttributer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SHAPAttributer</span></code></a>()</p></td>
+<td><p>Estimates the shapley value attribution of each feature using KernelSHAP.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="post-hoc-evaluation-module">
+<span id="evaluation"></span><h2>post_hoc.evaluation Module<a class="headerlink" href="#post-hoc-evaluation-module" title="Link to this heading"></a></h2>
+<section id="id2">
+<h3>Classes<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.evaluation.ImageAUCEvaluator.html#post_hoc.evaluation.ImageAUCEvaluator" title="post_hoc.evaluation.ImageAUCEvaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ImageAUCEvaluator</span></code></a>([mode, perturber, ...])</p></td>
+<td><p>Evaluates an image attribution through calculating the area under the deletion curve by deleting pixels/segments from most to least attributed (mif) or deleting the least attributed first (lif).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.evaluation.PointingGameEvaluator.html#post_hoc.evaluation.PointingGameEvaluator" title="post_hoc.evaluation.PointingGameEvaluator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PointingGameEvaluator</span></code></a>()</p></td>
+<td><p>Calculates the Pointing Game score of an attribution as the fraction of the most attributed pixels that lie within the ground truth segmentation.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="post-hoc-image-perturbers-module">
+<span id="image-perturbers"></span><h2>post_hoc.image_perturbers Module<a class="headerlink" href="#post-hoc-image-perturbers-module" title="Link to this heading"></a></h2>
+<section id="id3">
+<h3>Classes<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_perturbers.ColorHistogramPerturber.html#post_hoc.image_perturbers.ColorHistogramPerturber" title="post_hoc.image_perturbers.ColorHistogramPerturber"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ColorHistogramPerturber</span></code></a>([nr_bins])</p></td>
+<td><p>Creates perturbed versions of the image by replacing the pixels indicated by each perturbation mask with the median color of one bins of a histogram of the image chosen randomly weighted by the size of the bins.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.image_perturbers.Cv2InpaintPerturber.html#post_hoc.image_perturbers.Cv2InpaintPerturber" title="post_hoc.image_perturbers.Cv2InpaintPerturber"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Cv2InpaintPerturber</span></code></a>([mode, radius])</p></td>
+<td><p>Creates perturbed versions of the image by inpainting the pixels indicated by 0 using either of the two inpainting methods implemented by OpenCV.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_perturbers.RandomColorPerturber.html#post_hoc.image_perturbers.RandomColorPerturber" title="post_hoc.image_perturbers.RandomColorPerturber"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RandomColorPerturber</span></code></a>([uniform_rgb, ...])</p></td>
+<td><p>Creates perturbed versions of the image by replacing the pixels indicated by each mask with a randomly drawn color.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.image_perturbers.ReplaceImagePerturber.html#post_hoc.image_perturbers.ReplaceImagePerturber" title="post_hoc.image_perturbers.ReplaceImagePerturber"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ReplaceImagePerturber</span></code></a>(replace_images[, ...])</p></td>
+<td><p>Creates perturbed versions of the image by replacing the pixels indicated by each perturbation mask with the corresponding pixel from other images.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_perturbers.SingleColorPerturber.html#post_hoc.image_perturbers.SingleColorPerturber" title="post_hoc.image_perturbers.SingleColorPerturber"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SingleColorPerturber</span></code></a>([color])</p></td>
+<td><p>Creates perturbed versions of the image by replacing the pixels indicated by each perturbation mask with a given color.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.image_perturbers.TransformPerturber.html#post_hoc.image_perturbers.TransformPerturber" title="post_hoc.image_perturbers.TransformPerturber"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TransformPerturber</span></code></a>(transform, **kwargs)</p></td>
+<td><p>Creates perturbed versions of the image by replacing the pixels indicated by each perturbation mask with the corresponding pixel from a transformed version of the image.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="post-hoc-image-segmenters-module">
+<span id="image-segmenters"></span><h2>post_hoc.image_segmenters Module<a class="headerlink" href="#post-hoc-image-segmenters-module" title="Link to this heading"></a></h2>
+<section id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_segmenters.perturbation_masks.html#post_hoc.image_segmenters.perturbation_masks" title="post_hoc.image_segmenters.perturbation_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">perturbation_masks</span></code></a>(segment_masks, samples)</p></td>
+<td><p>Creates images masks indicating where the image should be perturbed using masks indicating where each segment is and rows of samples denoting which segments to include in each sample.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id4">
+<h3>Classes<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_segmenters.FadeMaskSegmenter.html#post_hoc.image_segmenters.FadeMaskSegmenter" title="post_hoc.image_segmenters.FadeMaskSegmenter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FadeMaskSegmenter</span></code></a>(segmenter, sigma, **kwargs)</p></td>
+<td><p>Segments an image using the wrapped segmenter and then smoothens the edges of the segmentation masks by applying a gaussian filter.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.image_segmenters.GridSegmenter.html#post_hoc.image_segmenters.GridSegmenter" title="post_hoc.image_segmenters.GridSegmenter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GridSegmenter</span></code></a>(h_segments, v_segments[, bilinear])</p></td>
+<td><p>Segments an image into a grid with a given amount of rows and columns.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_segmenters.WrapperSegmenter.html#post_hoc.image_segmenters.WrapperSegmenter" title="post_hoc.image_segmenters.WrapperSegmenter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WrapperSegmenter</span></code></a>(segmenter, **kwargs)</p></td>
+<td><p>Segments an image using a given segmentation function that returns a [H,W] array and then splits that array into a mask per segment.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="post-hoc-image-visualizers-module">
+<span id="image-visualizers"></span><h2>post_hoc.image_visualizers Module<a class="headerlink" href="#post-hoc-image-visualizers-module" title="Link to this heading"></a></h2>
+<section id="id5">
+<h3>Classes<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_visualizers.AUCVisualizer.html#post_hoc.image_visualizers.AUCVisualizer" title="post_hoc.image_visualizers.AUCVisualizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AUCVisualizer</span></code></a>()</p></td>
+<td><p>Makes a matplotlib plot showcasing the AUC scores for provided curves.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.image_visualizers.HeatmapVisualizer.html#post_hoc.image_visualizers.HeatmapVisualizer" title="post_hoc.image_visualizers.HeatmapVisualizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HeatmapVisualizer</span></code></a>([normalize, image_weight, ...])</p></td>
+<td><p>Creates a numpy images showing the attribution of the image by creating a heatmap overlaid on top of the original image.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.image_visualizers.TopVisualizer.html#post_hoc.image_visualizers.TopVisualizer" title="post_hoc.image_visualizers.TopVisualizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TopVisualizer</span></code></a>([k, p, percent, treshold, ...])</p></td>
+<td><p>Creates a numpy image showing the top attributed segments by perturbing the lower attributed segments.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="post-hoc-samplers-module">
+<span id="samplers"></span><h2>post_hoc.samplers Module<a class="headerlink" href="#post-hoc-samplers-module" title="Link to this heading"></a></h2>
+<section id="id6">
+<h3>Classes<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.samplers.RandomSampler.html#post_hoc.samplers.RandomSampler" title="post_hoc.samplers.RandomSampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RandomSampler</span></code></a>([p])</p></td>
+<td><p>Creates an array of samples where each feature is included (=1) with a given probability and to be perturbed (=0) otherwise.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.samplers.SampleProbabilitySampler.html#post_hoc.samplers.SampleProbabilitySampler" title="post_hoc.samplers.SampleProbabilitySampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SampleProbabilitySampler</span></code></a>([distribution, inverse])</p></td>
+<td><p>Creates and array of samples where each feature is set to be perturbed (=0) or not to be perturbed (=1) with a probability that, for each sample, is drawn from a given distribution.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.samplers.ShapSampler.html#post_hoc.samplers.ShapSampler" title="post_hoc.samplers.ShapSampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ShapSampler</span></code></a>([inverse, ignore_warning])</p></td>
+<td><p>Creates an array of samples indicating which features to perturb (0) and which to include (1) of a given size.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.samplers.SingleFeatureSampler.html#post_hoc.samplers.SingleFeatureSampler" title="post_hoc.samplers.SingleFeatureSampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SingleFeatureSampler</span></code></a>([inverse, add_all, ...])</p></td>
+<td><p>Creates an array of all possible samples where only a single feature is indicated to be perturbed (set to 0) or, if inverse, is indicated to not be perturbed (set to 1).</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="post-hoc-torch-utils-module">
+<span id="torch-utils"></span><h2>post_hoc.torch_utils Module<a class="headerlink" href="#post-hoc-torch-utils-module" title="Link to this heading"></a></h2>
+<section id="id7">
+<h3>Classes<a class="headerlink" href="#id7" title="Link to this heading"></a></h3>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/post_hoc.torch_utils.ImageToTorch.html#post_hoc.torch_utils.ImageToTorch" title="post_hoc.torch_utils.ImageToTorch"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ImageToTorch</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Transforms one or more images from a numpy array to a PyTorch tensor.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/post_hoc.torch_utils.TorchModelWrapper.html#post_hoc.torch_utils.TorchModelWrapper" title="post_hoc.torch_utils.TorchModelWrapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TorchModelWrapper</span></code></a>(model, input_transforms[, ...])</p></td>
+<td><p>Wraps around a PyTorch model and makes it work with numpy code.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Documentation for Perturbation-based Post-hoc Explanations for Image Attribution" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api/post_hoc.connectors.SegmentationAttribuitionPipeline.html" class="btn btn-neutral float-right" title="SegmentationAttribuitionPipeline" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Gustav Grund Pihlgren (guspih@github.com).</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

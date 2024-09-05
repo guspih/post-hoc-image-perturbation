@@ -1,0 +1,17 @@
+ColorHistogramPerturber
+=======================
+
+.. currentmodule:: post_hoc.image_perturbers
+
+.. autoclass:: ColorHistogramPerturber
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~ColorHistogramPerturber.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

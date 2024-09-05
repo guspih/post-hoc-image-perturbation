@@ -1,0 +1,17 @@
+ImageToTorch
+============
+
+.. currentmodule:: post_hoc.torch_utils
+
+.. autoclass:: ImageToTorch
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~ImageToTorch.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

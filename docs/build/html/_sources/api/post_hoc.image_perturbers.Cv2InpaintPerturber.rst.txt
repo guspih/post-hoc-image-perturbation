@@ -1,0 +1,17 @@
+Cv2InpaintPerturber
+===================
+
+.. currentmodule:: post_hoc.image_perturbers
+
+.. autoclass:: Cv2InpaintPerturber
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~Cv2InpaintPerturber.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

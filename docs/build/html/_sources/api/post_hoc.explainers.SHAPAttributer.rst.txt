@@ -1,0 +1,17 @@
+SHAPAttributer
+==============
+
+.. currentmodule:: post_hoc.explainers
+
+.. autoclass:: SHAPAttributer
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~SHAPAttributer.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

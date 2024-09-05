@@ -1,0 +1,17 @@
+RandomSampler
+=============
+
+.. currentmodule:: post_hoc.samplers
+
+.. autoclass:: RandomSampler
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~RandomSampler.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

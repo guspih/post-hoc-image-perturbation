@@ -1,0 +1,17 @@
+GridSegmenter
+=============
+
+.. currentmodule:: post_hoc.image_segmenters
+
+.. autoclass:: GridSegmenter
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~GridSegmenter.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

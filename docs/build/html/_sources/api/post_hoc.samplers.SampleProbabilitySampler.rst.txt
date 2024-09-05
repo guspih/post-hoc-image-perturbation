@@ -1,0 +1,17 @@
+SampleProbabilitySampler
+========================
+
+.. currentmodule:: post_hoc.samplers
+
+.. autoclass:: SampleProbabilitySampler
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~SampleProbabilitySampler.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

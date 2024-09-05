@@ -2,6 +2,9 @@
 images/
 datasets/
 logs/
+docs/source/api
+docs/source/_static
+docs/source_templates
 
 # Files to ignore
 api_keys.csv
@@ -17,7 +20,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/

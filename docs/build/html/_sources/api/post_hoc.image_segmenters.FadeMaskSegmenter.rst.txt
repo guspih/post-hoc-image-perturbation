@@ -1,0 +1,17 @@
+FadeMaskSegmenter
+=================
+
+.. currentmodule:: post_hoc.image_segmenters
+
+.. autoclass:: FadeMaskSegmenter
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~FadeMaskSegmenter.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

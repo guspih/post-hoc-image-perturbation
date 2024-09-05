@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentation for Perturbation-based Post-hoc Explanations for Image Attribution &mdash; Perturbation-based Post-hoc Explanations for Image Attribution 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=fd3f3429" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=8d563738"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="post_hoc" href="post_hoc.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            Perturbation-based Post-hoc Explanations for Image Attribution
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="post_hoc.html">post_hoc</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Perturbation-based Post-hoc Explanations for Image Attribution</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Documentation for Perturbation-based Post-hoc Explanations for Image Attribution</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="documentation-for-perturbation-based-post-hoc-explanations-for-image-attribution">
+<h1>Documentation for Perturbation-based Post-hoc Explanations for Image Attribution<a class="headerlink" href="#documentation-for-perturbation-based-post-hoc-explanations-for-image-attribution" title="Link to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="post_hoc.html">post_hoc</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-connectors-module">post_hoc.connectors Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-explainers-module">post_hoc.explainers Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-evaluation-module">post_hoc.evaluation Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-image-perturbers-module">post_hoc.image_perturbers Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-image-segmenters-module">post_hoc.image_segmenters Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-image-visualizers-module">post_hoc.image_visualizers Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-samplers-module">post_hoc.samplers Module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="post_hoc.html#post-hoc-torch-utils-module">post_hoc.torch_utils Module</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h1>
+<p>This work provides a generalize perturbation-based pipeline for image attribution that fits many existing works.
+The main pipeline is split between the <a class="reference internal" href="post_hoc.html#samplers"><span class="std std-ref">samplers</span></a>, <a class="reference internal" href="post_hoc.html#image-segmenters"><span class="std std-ref">image_segmenters</span></a>, <a class="reference internal" href="post_hoc.html#image-perturbers"><span class="std std-ref">image_perturbers</span></a>, and <a class="reference internal" href="post_hoc.html#explainers"><span class="std std-ref">explainers</span></a> modules.
+The <a class="reference internal" href="post_hoc.html#connectors"><span class="std std-ref">connectors</span></a> module contains classes that combine the different pieces into end-to-end pipelines.
+The  <a class="reference internal" href="post_hoc.html#image-visualizers"><span class="std std-ref">image_visualizers</span></a>, <a class="reference internal" href="post_hoc.html#evaluation"><span class="std std-ref">evaluation</span></a>, and <a class="reference internal" href="post_hoc.html#torch-utils"><span class="std std-ref">torch_utils</span></a> modules provide image explanation visualization, fidelity metrics, and Torchvision integration respectively.</p>
+<section id="the-complete-image-attribution-pipeline">
+<h2>The Complete Image Attribution Pipeline<a class="headerlink" href="#the-complete-image-attribution-pipeline" title="Link to this heading"></a></h2>
+<p>To explain a model’s classification of an image using the package the following steps can be taken.
+A showcase of these steps can be found in <code class="code docutils literal notranslate"><span class="pre">torchvision_showcase.ipynb</span></code>.</p>
+<ol class="arabic">
+<li><p>Segmenting</p>
+<ul class="simple">
+<li><p>Initialize a Segmenter from <a class="reference internal" href="post_hoc.html#image-segmenters"><span class="std std-ref">image_segmenters</span></a>.</p></li>
+<li><p>(optional) Wrap the Segmenter using FadeMaskSegmenter to get faded masks for smoother perturbations.</p></li>
+<li><p>Prepare the image to be a numpy array with shape <code class="code docutils literal notranslate"><span class="pre">[Height,</span> <span class="pre">Width,</span> <span class="pre">Channels]</span></code>.</p></li>
+<li><p>Call the Segmenter with the image as input to return (<code class="code docutils literal notranslate"><span class="pre">Each</span> <span class="pre">pixel</span> <span class="pre">indexed</span> <span class="pre">with</span> <span class="pre">the</span> <span class="pre">corresponding</span> <span class="pre">segment</span></code> (not used further), <code class="code docutils literal notranslate"><span class="pre">one</span> <span class="pre">mask</span> <span class="pre">for</span> <span class="pre">each</span> <span class="pre">segment</span></code> (1=pixel belongs to segment, 0 otherwise), <code class="code docutils literal notranslate"><span class="pre">one</span> <span class="pre">(possibly</span> <span class="pre">faded)</span> <span class="pre">mask</span> <span class="pre">for</span> <span class="pre">each</span> <span class="pre">segment</span></code>).</p></li>
+</ul>
+</li>
+<li><p>Sampling</p>
+<ul class="simple">
+<li><p>Intialize a Sampler from <a class="reference internal" href="post_hoc.html#samplers"><span class="std std-ref">samplers</span></a>.</p></li>
+<li><p>Call the Sampler with the number of segments <code class="code docutils literal notranslate"><span class="pre">M</span></code> the image was divided into and the number of samples to later perturb.</p></li>
+<li><p>The Sampler returns an array of shape <code class="code docutils literal notranslate"><span class="pre">[sample</span> <span class="pre">size,</span> <span class="pre">M]</span></code> where each row is a sample indicating which segments should be perturbed (=0) or not (=1).</p></li>
+</ul>
+</li>
+<li><p>Perturbing</p>
+<ul>
+<li><p>Use the <code class="code docutils literal notranslate"><span class="pre">perturbation_masks</span></code> function from the <a class="reference internal" href="post_hoc.html#image-segmenters"><span class="std std-ref">image_segmenters</span></a> module to create perturbation masks.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The function takes the segment_masks (faded or not) and the samples and returns an array of shape <code class="code docutils literal notranslate"><span class="pre">[sample</span> <span class="pre">size,</span> <span class="pre">Height,</span> <span class="pre">Width]</span></code> of perturbation masks indicating for each sample which pixels to perturb (=0) and not (=1), or the strength of the perturbation for faded masks (0-1).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Initialize a Perturber from <a class="reference internal" href="post_hoc.html#image-perturbers"><span class="std std-ref">image_perturbers</span></a>.</p></li>
+<li><p>Call the Perturber with the image, the perturbation masks, and the samples.</p></li>
+<li><p>The Perturber returns an array of shape <code class="code docutils literal notranslate"><span class="pre">[sample</span> <span class="pre">size*N,</span> <span class="pre">Height,</span> <span class="pre">Width,</span> <span class="pre">Channels]</span></code> containing all the perturbed versions of the image. The Perturber also returns the index <code class="code docutils literal notranslate"><span class="pre">[sample</span> <span class="pre">size*N,</span> <span class="pre">M]</span></code> indicating which segment is perturbed for each image (<code class="code docutils literal notranslate"><span class="pre">N</span></code> is usually 1).</p></li>
+</ul>
+</li>
+<li><p>Classifying</p>
+<ul class="simple">
+<li><p>Pick a image classification model of you choice and transform the perturbed images to be suitable for that model.</p></li>
+<li><p>(optional) If using an Torchvision model the <a class="reference internal" href="post_hoc.html#torch-utils"><span class="std std-ref">torch_utils</span></a> provides useful wrappers and transforms to make it function with the other code.</p></li>
+<li><p>Use the model to get classification predictions for the class you wish to explain (e.g. the true class or the top predicted class).</p></li>
+<li><p>Format the desired predictions into a numpy array of shape <code class="code docutils literal notranslate"><span class="pre">[sample</span> <span class="pre">size*N]</span></code>.</p></li>
+</ul>
+</li>
+<li><p>Attributing</p>
+<ul class="simple">
+<li><p>Initialize a Attributer from <a class="reference internal" href="post_hoc.html#explainers"><span class="std std-ref">explainers</span></a>.</p></li>
+<li><p>Call the Attributer with the predictions and the perturbation index of shape <code class="code docutils literal notranslate"><span class="pre">[sample</span> <span class="pre">size*N,</span> <span class="pre">M]</span></code>.</p></li>
+<li><p>The Attributer returns a tuple with that Attributer’s explanations, but <code class="code docutils literal notranslate"><span class="pre">tuple[-2]</span></code> always contain that Attributer’s influence per feature scores. Which scores belong to what features are indexed by <code class="code docutils literal notranslate"><span class="pre">tuple[-1]</span></code>.</p></li>
+<li><p>Among other things the most positively influential segment can be found as <code class="code docutils literal notranslate"><span class="pre">tuple[-1][np.argmax(tuple[-2])]</span></code> and the most influential (in either direction) as <code class="code docutils literal notranslate"><span class="pre">tuple[-1][np.argmax(np.abs(tuple[-2]))]</span></code>.</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="building-connected-pipelines">
+<h2>Building Connected Pipelines<a class="headerlink" href="#building-connected-pipelines" title="Link to this heading"></a></h2>
+<p>Doing each of the steps described above can get tedious and take a lot of space.
+Since these steps are standardized classes for creating end-to-end pipelines are provided by the <a class="reference internal" href="post_hoc.html#connectors"><span class="std std-ref">connectors</span></a> module.
+A showcase of using <a class="reference internal" href="post_hoc.html#connectors"><span class="std std-ref">connectors</span></a> module can be found in <code class="code docutils literal notranslate"><span class="pre">torchvision_showcase_2.ipynb</span></code>.
+To use the <code class="code docutils literal notranslate"><span class="pre">SegmentationAttribuitionPipeline</span></code> follow the steps below.</p>
+<ol class="arabic simple">
+<li><p>Preparations</p>
+<ul class="simple">
+<li><p>Intialize a Segmenter, Sampler, Perturber, and Attributer</p></li>
+<li><p>Format the image into a numpy array of shape <code class="code docutils literal notranslate"><span class="pre">[Height,</span> <span class="pre">Width,</span> <span class="pre">Channels]</span></code></p></li>
+<li><p>Create a model that takes numpy images in shape <code class="code docutils literal notranslate"><span class="pre">[Batch</span> <span class="pre">size,</span> <span class="pre">Height,</span> <span class="pre">Width,</span> <span class="pre">Channels]</span></code> and returns a numpy array of shape <code class="code docutils literal notranslate"><span class="pre">[Batch</span> <span class="pre">size,</span> <span class="pre">Outputs]</span></code> (for Torchvision models this can be achieved with the <a class="reference internal" href="post_hoc.html#torch-utils"><span class="std std-ref">torch_utils</span></a> module).</p></li>
+<li><p>Initialize <code class="code docutils literal notranslate"><span class="pre">SegmentationAttribuitionPipeline</span></code> from the <a class="reference internal" href="post_hoc.html#connectors"><span class="std std-ref">connectors</span></a> module using the Segmenter, Sampler, Perturber, and Attributer. Also select whether to use per pixel explanation and what batch size to use for predictions.</p></li>
+</ul>
+</li>
+<li><p>Running the Pipeline</p>
+<ul class="simple">
+<li><p>Call the Pipeline with the image, model, and sample size</p></li>
+<li><p>The pipeline returns, for each output class, the attribution score per segment and, if chosen, the attribution per pixel.</p></li>
+</ul>
+</li>
+</ol>
+<p>Alternatively the <code class="code docutils literal notranslate"><span class="pre">SegmentationPredictionPipeline</span></code> can be used to only get the predictions per perturbed image and perturbation indexes which will allow you to calculate the attribution for the same pipeline with different Attributers.</p>
+</section>
+<section id="visualizing-the-attribution">
+<h2>Visualizing the Attribution<a class="headerlink" href="#visualizing-the-attribution" title="Link to this heading"></a></h2>
+<p>Beyond attributing influence to each segment, these scores can be visualized in order to make them clearer.
+Some of the classes of the <a class="reference internal" href="post_hoc.html#image-visualizers"><span class="std std-ref">image_visualizers</span></a> module can be used to visualize attribution of image segments.
+<code class="code docutils literal notranslate"><span class="pre">TopVisualizer</span></code> and <cite>HeatmapVisualizer</cite> takes the attribution scores, the image, and the segment masks and visualize the scores on top of the image, by respecitvely displaying the top influential segments or displaying a heatmap of the scores on top of the image.
+Using faded masks will cause the scores to be spread out per pixel instead of per segment.
+Optionally, if per pixel scores are already obtained, that map can be passed as the scores and masks can be skipped entierly.</p>
+</section>
+<section id="evaluating-the-attribution">
+<h2>Evaluating the Attribution<a class="headerlink" href="#evaluating-the-attribution" title="Link to this heading"></a></h2>
+<p>While explanation methods should ideally be evaluated with user testing, this is not always feasible.
+Instead some fidelity metrics have been introduced to enable automated evaluation.
+This repository currently implements occlusion (or Area Under the Curve) and pointing game metrics for images in the <a class="reference internal" href="post_hoc.html#evaluation"><span class="std std-ref">evaluation</span></a> module.
+The <code class="code docutils literal notranslate"><span class="pre">ImageAUCEvaluator</span></code> can take an image, a model, and attribution scores and evaluate the fidelity of the attribution by iteratively occluding the least or most influential pixels and evaluating how much the prediction changes as the area under the prediction-occlusion curve.
+The <code class="code docutils literal notranslate"><span class="pre">PointingGameEvaluator</span></code> can take a mask showing the salient area of the attributed image and calculates a whether the most attributed pixel falls within the area.</p>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="post_hoc.html" class="btn btn-neutral float-right" title="post_hoc" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Gustav Grund Pihlgren (guspih@github.com).</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

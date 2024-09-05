@@ -1,0 +1,17 @@
+OriginalCIUAttributer
+=====================
+
+.. currentmodule:: post_hoc.explainers
+
+.. autoclass:: OriginalCIUAttributer
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~OriginalCIUAttributer.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

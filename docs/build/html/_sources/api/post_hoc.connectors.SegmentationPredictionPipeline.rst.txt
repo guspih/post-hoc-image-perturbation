@@ -1,0 +1,17 @@
+SegmentationPredictionPipeline
+==============================
+
+.. currentmodule:: post_hoc.connectors
+
+.. autoclass:: SegmentationPredictionPipeline
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~SegmentationPredictionPipeline.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

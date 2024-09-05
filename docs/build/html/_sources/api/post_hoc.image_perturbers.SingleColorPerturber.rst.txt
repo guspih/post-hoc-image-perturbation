@@ -1,0 +1,17 @@
+SingleColorPerturber
+====================
+
+.. currentmodule:: post_hoc.image_perturbers
+
+.. autoclass:: SingleColorPerturber
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~SingleColorPerturber.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

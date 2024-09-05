@@ -1,0 +1,17 @@
+SingleFeatureSampler
+====================
+
+.. currentmodule:: post_hoc.samplers
+
+.. autoclass:: SingleFeatureSampler
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~SingleFeatureSampler.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

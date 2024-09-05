@@ -1,0 +1,17 @@
+PDAAttributer
+=============
+
+.. currentmodule:: post_hoc.explainers
+
+.. autoclass:: PDAAttributer
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~PDAAttributer.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

@@ -1,0 +1,19 @@
+ImageAUCEvaluator
+=================
+
+.. currentmodule:: post_hoc.evaluation
+
+.. autoclass:: ImageAUCEvaluator
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~ImageAUCEvaluator.__call__
+      ~ImageAUCEvaluator.get_normalized
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__
+   .. automethod:: get_normalized

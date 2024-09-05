@@ -1,0 +1,17 @@
+AUCVisualizer
+=============
+
+.. currentmodule:: post_hoc.image_visualizers
+
+.. autoclass:: AUCVisualizer
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~AUCVisualizer.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

@@ -1,0 +1,17 @@
+LinearLIMEAttributer
+====================
+
+.. currentmodule:: post_hoc.explainers
+
+.. autoclass:: LinearLIMEAttributer
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~LinearLIMEAttributer.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

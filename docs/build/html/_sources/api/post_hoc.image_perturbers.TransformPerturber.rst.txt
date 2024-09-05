@@ -1,0 +1,17 @@
+TransformPerturber
+==================
+
+.. currentmodule:: post_hoc.image_perturbers
+
+.. autoclass:: TransformPerturber
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~TransformPerturber.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

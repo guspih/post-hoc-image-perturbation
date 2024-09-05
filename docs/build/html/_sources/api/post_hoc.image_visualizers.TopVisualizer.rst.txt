@@ -1,0 +1,17 @@
+TopVisualizer
+=============
+
+.. currentmodule:: post_hoc.image_visualizers
+
+.. autoclass:: TopVisualizer
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~TopVisualizer.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

@@ -1,0 +1,17 @@
+WrapperSegmenter
+================
+
+.. currentmodule:: post_hoc.image_segmenters
+
+.. autoclass:: WrapperSegmenter
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~WrapperSegmenter.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__

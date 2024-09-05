@@ -1,0 +1,6 @@
+perturbation_masks
+==================
+
+.. currentmodule:: post_hoc.image_segmenters
+
+.. autofunction:: perturbation_masks

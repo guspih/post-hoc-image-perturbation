@@ -1,0 +1,17 @@
+RISEAttributer
+==============
+
+.. currentmodule:: post_hoc.explainers
+
+.. autoclass:: RISEAttributer
+   :show-inheritance:
+
+   .. rubric:: Methods Summary
+
+   .. autosummary::
+
+      ~RISEAttributer.__call__
+
+   .. rubric:: Methods Documentation
+
+   .. automethod:: __call__
