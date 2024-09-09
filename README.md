@@ -32,3 +32,19 @@ Calling `python experiment.py --help` returns instructions for how to run experi
 
 The showcases and experiments are currently optimized to work on a fairly high-end computer, and may need to be altered to work on other devices, especially those with small RAM and VRAM.
 In the future, this will be addressed.
+
+## Citation
+
+The experiments in this repository has been used in the work [Smooth-edged Perturbations Improve Perturbation-based Image Explanations](https://arxiv.org/abs/2409.04116).
+If you use this repository in you research, please cite that work.
+The BibTex entry for the work can be found below:
+
+```bash
+@article{pihlgren2024smooth,
+    title={Smooth-edged Perturbations Improve Perturbation-based Image Explanations},
+    author={Gustav Grund Pihlgren and Kary Främling},
+    doi = {10.48550/arXiv.2409.04116},
+    journal = {arXiv preprint},
+    year={2024}
+}
+```
