@@ -36,10 +36,8 @@ class OriginalCIUAttributer():
         M = Z.shape[1]
         point = 1 if self.inverse else 0
         true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
-        min_importance = np.zeros(M)
-        max_importance = np.zeros(M)
-        min_importance[:] = true_y
-        max_importance[:] = true_y
+        min_importance = np.full(M, true_y)
+        max_importance = np.full(M, true_y)
         for y, z in zip(Y,Z):
             if self.inverse:
                 y = 1-y
@@ -58,8 +56,6 @@ class OriginalCIUAttributer():
         importance = (max_importance-min_importance)
         utility = (true_y - min_importance)/(importance+1e-12)
         importance = importance/(np.max(Y)-np.min(Y)+1e-12)
-        #if self.inverse:
-        #    importance = 1-importance
         influence = importance*(utility-self.expected_util)
         return importance, utility, influence, np.eye(M)
 
@@ -77,7 +73,6 @@ class CIUAttributer():
     Args:
         expected_util (float/[float]]): Sets the baseline for influence>0
         return_samples (array): [X,M] array indicating features for attribution
-
     '''
     def __init__(self, expected_util=0.5, return_samples=None):
         self.expected_util = expected_util
@@ -91,32 +86,120 @@ class CIUAttributer():
         Args:
             Y (array): [N] array of all model values for the perturbed inputs
             Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns (array, array, array, array):
-            array: [X] the context importance of given feature combinations
-            array: [X] the context utility of given feature combinations
+        Returns:
+            array: [X] the contextual importance of given feature combinations
+            array: [X] the contextual utility of given feature combinations
             array: [X] the influence (ci*(cu-E[cu])) of the combinations
             array: [X,M] map from attribution scores to feature combinations
         '''
         M = Z.shape[1]
+        indices = np.argsort(-np.sum(Z, axis=1))
+        Z = Z[indices]
+        Y = Y[indices]
         if self.return_samples is None:
             unique_Z = np.unique(Z, axis=0)
         else:
             unique_Z = self.return_samples
+        unique_Z = unique_Z[np.argsort(-np.sum(unique_Z, axis=1))]
         true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
-        min_importance = np.zeros(unique_Z.shape[0])
-        max_importance = np.zeros(unique_Z.shape[0])
-        min_importance[:] = 10000
-        max_importance[:] = -10000
+        min_y = np.full(unique_Z.shape[0], 10000.0)
+        max_y = np.full(unique_Z.shape[0], -10000.0)
         for y, z0 in zip(Y,Z):
             for i, z1 in enumerate(unique_Z):
-                if np.all(z1*z0 == z1):
-                    if min_importance[i] > y: min_importance[i] = y
-                    if max_importance[i] < y: max_importance[i] = y
-        importance = (max_importance-min_importance)
-        utility = (true_y - min_importance)/(importance+1e-12)
+                if np.all(z1*z0 == z1): #TODO: Speedup by using sorted Z
+                    if min_y[i] > y: min_y[i] = y
+                    if max_y[i] < y: max_y[i] = y
+        importance = max_y-min_y
+        utility = (true_y - min_y)/(importance+1e-12)
         importance = importance/(np.max(Y)-np.min(Y)+1e-12)
         influence = importance*(utility-self.expected_util)
-        return importance, utility, influence, unique_Z
+        return importance, utility, influence, 1-unique_Z
+
+class CIUPlusAttributer1():
+    '''
+    Calculates the CIU values for each feature by calculating the them for each
+    combination of features in in Z and distributing the excess importance of
+    combinations among their constituent pieces. The importance of combinations
+    is calucated using CIUAttributer.
+
+    Args:
+        expected_util (float/[float]]): Sets the baseline for influence>0
+        return_samples (array): [X,M] array indicating features for attribution
+    '''
+    def __init__(self, expected_util=0.5, return_samples=None):
+        self.expected_util = expected_util
+        self.return_samples = return_samples
+        self.ciu = CIUAttributer(expected_util, return_samples)
+
+    def __str__(self):
+        return f'CIUPlusAttributer({self.expected_util},{self.return_samples})'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            array: [M] the contextual importance of each feature
+            array: [M] the contextual utility of each feature
+            array: [M] the influence (ci*(cu-E[cu])) of each feature
+            array: [M,M] map of attribution score to feature
+        '''
+        M = Z.shape[1]
+        indices = np.argsort(-np.sum(Z, axis=1))
+        Z = Z[indices]
+        Y = Y[indices]
+        if self.return_samples is None:
+            unique_Z = np.unique(Z, axis=0)
+        else:
+            unique_Z = self.return_samples
+        unique_Z = unique_Z[np.argsort(-np.sum(unique_Z, axis=1))]
+        true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
+        min_y = np.full(unique_Z.shape[0], 10000.0)
+        max_y = np.full(unique_Z.shape[0], -10000.0)
+        for y, z0 in zip(Y,Z):
+            for i, z1 in enumerate(unique_Z):
+                if np.all(z1*z0 == z1): #TODO: Speedup by using sorted Z
+                    if min_y[i] > y: min_y[i] = y
+                    if max_y[i] < y: max_y[i] = y
+        excess_min = np.full(M, 10000.0)
+        excess_max = np.full(M, -10000.0)
+        combo_min = np.zeros(M)
+        combo_max = np.zeros(M)
+        new_min = min_y.copy()
+        new_max = max_y.copy()
+        current_z_sum = 1
+        for i, (mn, mx, z0) in enumerate(zip(min_y, max_y, unique_Z)):
+            new_mn, new_mx = new_min[i], new_max[i]
+            idxs = z0==0
+            z_sum = np.sum(idxs)
+            if z_sum == 0:
+                continue
+            if z_sum > current_z_sum:
+                current_z_sum = z_sum
+                combo_max += excess_max*(excess_max>-10000.0)
+                combo_min += excess_min*(excess_min<10000.0)
+                excess_max[excess_max>-10000.0] = 0.0
+                excess_min[excess_min<10000.0] = 0.0
+            excess_mx = new_mx/z_sum
+            excess_mn = new_mn/z_sum
+            excess_max[idxs & (excess_max < excess_mx)] = excess_mx
+            excess_min[idxs & (excess_min > excess_mn)] = excess_mn
+            for j, z1 in enumerate(unique_Z):
+                z1_sum = M-np.sum(z1)
+                if z1_sum <= z_sum:
+                    continue
+                if not np.all(z0*z1 == z1):
+                    continue
+                new_max[j] = max(0, min(new_max[j], max_y[j]-mx))
+                new_min[j] = min(0, max(new_min[j], mn-min_y[j]))
+        combo_max += excess_max
+        combo_min += excess_min
+        importance = combo_max-combo_min
+        utility = (true_y - combo_min)/(importance+1e-12)
+        importance = importance/(np.max(Y)-np.min(Y)+1e-12)
+        influence = importance*(utility-self.expected_util)
+        return importance, utility, influence, np.eye(M)
 
 class SHAPAttributer():
     '''
