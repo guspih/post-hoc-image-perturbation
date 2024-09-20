@@ -202,3 +202,79 @@ class ShapSampler():
                 break
             l = i
         return samples
+
+class MultiSampler():
+    '''
+    Creates an array of samples indicating which features to perturb (0) and
+    which to include (1) of a given size. Samples from a given set of samplers
+    and samples from them according to a defined split size.
+
+    Args:
+        samplers ([callable]): The samplers to sample from
+        array: [X] The fraction of samples to draw from each of the X samplers
+    '''
+    def __init__(self, samplers, split=None):
+        self.samplers = samplers
+        if split is None:
+            self.split = np.full(len(samplers), 1/len(samplers))
+        else:
+            self.split = split/np.sum(split)
+
+    def __str__(self):
+        content = f'[{",".join(self.samplers)}],[{",".join(self.split)}]'
+        return f'MultiSampler({content})'
+
+    def __call__(self, M, sample_size):
+        '''
+        Args:
+            M (int): Nr of features in each sample that can be perturbed
+            sample_size (int): Nr of different samples to generate
+        Returns: 
+            array: [sample_size, M] index of the features to perturb per sample
+        '''
+        float_sizes = self.split*sample_size
+        sizes = np.floor(float_sizes).astype(int)
+        missing = sample_size-np.sum(sizes)
+        remainers = float_sizes-sizes
+        sizes[np.argpartition(remainers, missing)[:missing]] += 1
+        samples = []
+        for sampler, size in zip(self.samplers, sizes):
+            samples.append(sampler(M, size))
+        return(np.concatenate(samples))
+
+class AllNoneWrapperSampler():
+    '''
+    Creates an array of samples indicating which features to perturb (0) and
+    which to include (1) of a given size. Samples are taken from a given
+    sampler and the indicated samples of all or no features being perturbed is
+    appended.
+
+    Args:
+        add_all (bool): If True, adds a sample where all features are perturbed
+        add_none (bool): If True, adds a sample where no features are perturbed
+    '''
+    def __init__(self, sampler, add_all=False, add_none=False):
+        if not (add_all or add_none):
+            raise ValueError('One or both of add_all and add_none should True')
+        self.sampler = sampler
+        self.add_all = add_all
+        self.add_none = add_none
+    
+    def __str__(self):
+        content = f'{self.sampler},{self.add_all},{self.add_none}'
+        return f'AllNoneWrapperSampler({content})'
+
+    def __call__(self, M, sample_size):
+        '''
+        Args:
+            M (int): Nr of features in each sample that can be perturbed
+            sample_size (int): Nr of different samples to generate
+        Returns:
+            array: [sample_size(+1/+2),M] index of the features to perturb
+        '''
+        samples = self.sampler(M, sample_size)
+        if self.add_all:
+            samples = np.concatenate((samples, np.zeros((1,M))))
+        if self.add_none:
+            samples = np.concatenate((samples, np.ones((1,M))))
+        return samples
