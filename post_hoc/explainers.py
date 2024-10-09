@@ -339,6 +339,46 @@ class PDAAttributer():
             true_y = true_y[0]
         return true_y-avg_relevance, np.eye(M)
 
+class SymmetricInfluenceAttributer():
+    '''
+    Calculates the attribution as is done in the RISE method. Each feature is
+    attributed with the average Y value when that feature is not perturbed
+    subtracted by the average Y value when it is perturbed. Optionally, the
+    Y averages can be weighted by the fraction of features included/occluded.
+
+    Args:
+        weighted (bool): Whether the contribution for each sample is weighted
+    '''
+    def __init__(self, weighted=False):
+        self.weighted = weighted
+
+    def __str__(self):
+        return f'SymmetricInfluenceAttributer({self.weighted})'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            array: [M] the attribution values of each feature
+            array: [M,M] map from attribution scores to features
+        '''
+        M = Z.shape[1]
+        Y = Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))
+        included = Z
+        occluded = 1-Z
+        if self.weighted:
+            included = included/(1e-12 + np.sum(
+                included, axis=tuple(range(1,Z.ndim)), keepdims=True
+            ))
+            occluded = occluded/(1e-12 + np.sum(
+                occluded, axis=tuple(range(1,Z.ndim)), keepdims=True
+            ))
+        positive_infl = np.sum(included*Y, axis=0)/np.sum(included, axis=0)
+        negative_infl = np.sum(occluded*Y, axis=0)/np.sum(occluded, axis=0)
+        return positive_infl-negative_infl, np.eye(Z.shape[1])
+
 
 class ExplainerAttributer():
     '''
