@@ -1,5 +1,6 @@
 import itertools
 import numpy as np
+import random
 import scipy.stats
 import warnings
 
@@ -18,7 +19,7 @@ class RandomSampler():
 
     def __str__(self):
         return f'RandomSampler({self.p})'
-    
+
     def __call__(self, M, sample_size=None):
         '''
         Args:
@@ -30,6 +31,39 @@ class RandomSampler():
         if sample_size is None:
             sample_size = M
         return np.random.choice(2, (sample_size, M), p=(1-self.p, self.p))
+
+class UniqueRandomSampler():
+    '''
+    Creates an array of samples where each feature is included (=1) or perturbed
+    (=0) with equal probability. Samples in such a way that no two samples are
+    the same.
+    '''
+    def __str__(self):
+        return f'UniqueRandomSampler()'
+
+    def __call__(self, M, sample_size=None):
+        '''
+        Args:
+            M (int): Nr of features in each sample that can be perturbed
+            sample_size (int): Nr of different samples to generate
+        Returns: 
+            array: [sample_size, M] index of the features to perturb per sample
+        '''
+        if sample_size is None:
+            sample_size = M
+        elif sample_size > 2**M:
+            sample_size = 2**M
+        if M < 61:
+            samples = random.sample(range(2**M), sample_size)
+            samples = [list('{:b}'.format(n).rjust(M,'0')) for n in samples]
+            return np.array(samples, dtype=int)
+        samples = np.random.choice(2, (sample_size, M))
+        s = random.sample(range(2**61), sample_size)
+        s = np.array(
+            [list('{:b}'.format(n).rjust(61,'0')) for n in s], dtype=int
+        )
+        samples[:, :61] = s
+        return samples
 
 class SampleProbabilitySampler():
     '''
@@ -172,6 +206,8 @@ class ShapSampler():
                 f'sample_size < M+2, but sample_size={sample_size} and M={M} '
                 f'was given.'
             )
+        if sample_size > 2**M:
+            sample_size = 2**M
         if self.inverse:
             point = 1
             samples = np.zeros((sample_size, M), dtype=int)
