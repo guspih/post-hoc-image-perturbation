@@ -8,14 +8,14 @@ Additionally, the repository contains code for automatically evaluating such pip
 
 The code has been tested using `Python 3.11`, `PyTorch 2.3.0`, and `Torchvision 0.15.2`, but likely works with other versions as well.
 In addition the code uses the following Python packages:
-| Package          | Tested version | Required for                                  |
-| ---------------- | -------------- | --------------------------------------------- |
-| `numpy`          | `1.26.4`       | Everything                                    |
-| `pillow`         | `10.3.0`       | Dataset collection and showcases              |
-| `scikit-image`   | `0.22.0`       | Image processsing                             |
-| `scipy`          | `1.13.1`       | Everything                                    |
-| `opencv` (`cv2`) | `4.7.0`        | Image processing                              |
-| `matplotlib`     | `3.8.4`        | Image attribution visualization and showcases |
+| Package          | Tested version | Required for                                                                 |
+| ---------------- | -------------- | ---------------------------------------------------------------------------- |
+| `numpy`          | `1.26.4`       | Everything                                                                   |
+| `pillow`         | `10.3.0`       | Dataset collection, showcases, and experiments                               |
+| `scikit-image`   | `0.22.0`       | Grid segmenting, showcases and experiments                                   |
+| `scipy`          | `1.13.1`       | SampleProbabilitySampler, FadeMaskSegmenter, SHAPAttributer, and experiments |
+| `opencv` (`cv2`) | `4.7.0`        | Cv2InpaintPerturber, HeatMapVisualizer, and experiments                      |
+| `matplotlib`     | `3.8.4`        | AUCVisualizer and showcases                                                  |
 
 The code works with and without GPU, though running automated experiments is significantly faster with GPU and debilitatingly slow without.
 
