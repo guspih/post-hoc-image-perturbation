@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import scipy.special
 
 # Attributers (Explainers that calculates attribution)
 class OriginalCIUAttributer():
@@ -381,6 +380,7 @@ def shap_kernel(M, s):
     Returns:
         array: [N] the SHAP kernel values for each s given M
     '''
+    import scipy.special
     return np.nan_to_num(
         (M - 1) / (scipy.special.binom(M, s) * s * (M - s)),
         posinf=100000, neginf=100000

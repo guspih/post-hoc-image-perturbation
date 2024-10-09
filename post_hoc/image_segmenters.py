@@ -1,7 +1,4 @@
 import numpy as np
-from skimage.transform import resize
-from scipy.ndimage import gaussian_filter
-
 
 # Image segmenters
 class WrapperSegmenter():
@@ -54,6 +51,8 @@ class GridSegmenter():
         self.h_nr = h_segments
         self.v_nr = v_segments
         self.bilinear = bilinear
+        from skimage.transform import resize
+        self.resize = resize
 
     def __str__(self):
         return f'GridSegmenter({self.h_nr},{self.v_nr},{self.bilinear})'
@@ -69,20 +68,20 @@ class GridSegmenter():
         '''
         h_size, v_size = image.shape[0:2]
         segments = np.arange(self.h_nr*self.v_nr).reshape(self.h_nr, self.v_nr)
-        segments = resize(
+        segments = self.resize(
             segments, (h_size,v_size), order=0, mode='reflect',
             anti_aliasing=False
         )
         masks = np.zeros((self.h_nr*self.v_nr, self.h_nr, self.v_nr))
         for i in range(self.h_nr*self.v_nr):
             masks[i, i//self.h_nr, i%self.v_nr] = 1
-        segment_masks = resize(
+        segment_masks = self.resize(
             masks, (self.h_nr*self.v_nr,h_size,v_size), mode='reflect',
             order=0, anti_aliasing=False
         )
         if not self.bilinear:
             return segments, segment_masks, segment_masks
-        transformed_masks = resize(
+        transformed_masks = self.resize(
             masks, (self.h_nr*self.v_nr,h_size,v_size), mode='reflect',
             order=1, anti_aliasing=False
         )   
@@ -103,7 +102,9 @@ class FadeMaskSegmenter():
         self.segmenter = segmenter
         self.sigma = sigma
         self.kwargs = kwargs
-    
+        from scipy.ndimage import gaussian_filter
+        self.gaussian_filter = gaussian_filter
+
     def __str__(self):
         kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
         kw = ',' + kw if len(kw) > 0 else kw
@@ -119,7 +120,7 @@ class FadeMaskSegmenter():
             [S,H,W] array with faded masks for each of the S segments
         '''
         segments, segment_masks, transformed_masks = self.segmenter(image)
-        transformed_masks = gaussian_filter(
+        transformed_masks = self.gaussian_filter(
             transformed_masks, sigma=self.sigma,
             axes=range(1,len(transformed_masks.shape)), **self.kwargs, **kwargs
         )

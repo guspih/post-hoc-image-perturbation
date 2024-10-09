@@ -1,9 +1,8 @@
 import itertools
 import numpy as np
 import random
-import scipy.stats
-import warnings
 
+import warnings
 
 class RandomSampler():
     '''
@@ -88,6 +87,8 @@ class SampleProbabilitySampler():
             raise ValueError(
                 f'distribution={distribution} should be one of {distributions}'
             )
+        from scipy.stats import truncnorm
+        self.truncnorm = truncnorm
 
     def __str__(self):
         kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
@@ -111,7 +112,7 @@ class SampleProbabilitySampler():
             loc = self.kwargs.get('loc', 0.5)
             scale = self.kwargs.get('scale', 1)
             a, b = (0-loc)/scale, (1-loc)/scale
-            sample_p = scipy.stats.truncnorm(a, b, loc, scale).rvs(
+            sample_p = self.truncnorm(a, b, loc, scale).rvs(
                 size=(sample_size,1)
             )
         elif self.distribution == 'beta':

@@ -1,10 +1,7 @@
 import numpy as np
-import cv2
-import matplotlib.pyplot as plt
 
 from .image_perturbers import SingleColorPerturber, ReplaceImagePerturber
 from .image_segmenters import perturbation_masks
-
 
 class TopVisualizer():
     '''
@@ -94,14 +91,18 @@ class HeatmapVisualizer():
         invert_colormap (bool): Whether to swap the direction of the colormap
     '''
     def __init__(
-            self, normalize=False, image_weight=0.5, colormap=cv2.COLORMAP_JET,
+            self, normalize=False, image_weight=0.5, colormap=None,
             invert_colormap=False
         ):
         self.perturber = ReplaceImagePerturber(replace_images=None)
         self.normalize = normalize
         self.image_weight = image_weight
+        import cv2
+        if colormap is None:
+            colormap = cv2.COLORMAP_JET
         self.colormap = colormap
         self.invert_colormap = invert_colormap
+        self.applyColorMap = cv2.applyColorMap
 
     def __call__(self, vals, image, masks=None):
         '''
@@ -124,7 +125,7 @@ class HeatmapVisualizer():
         if self.invert_colormap:
             heatmap = 1-heatmap
         heatmap = (heatmap*255).astype(np.uint8)
-        heatmap = cv2.applyColorMap(heatmap, colormap=self.colormap)
+        heatmap = self.applyColorMap(heatmap, colormap=self.colormap)
         perturbed_image = self.perturber(
             image, np.full(image.shape[:1], self.image_weight), None,
             replace_images=(heatmap/255).astype(np.float32)
@@ -141,6 +142,7 @@ class AUCVisualizer():
             *curves: Curves to display of format values or (values, title str),
                 where values is either a lif/mif curve or a tuple of (lif, mif)
         '''
+        import matplotlib.pyplot as plt
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         plt.figure()
         titles = []

@@ -1,6 +1,4 @@
 import numpy as np
-import cv2
-
 
 # Perturbers
 class SingleColorPerturber():
@@ -160,6 +158,7 @@ class Cv2InpaintPerturber():
         mode (str): The inpainting method, either "telea" or "bertalmio"
     '''
     def __init__(self, mode='telea', radius=1):
+        import cv2
         if mode == 'telea':
             self.flags = cv2.INPAINT_TELEA
         elif mode == 'bertalmio':
@@ -171,6 +170,7 @@ class Cv2InpaintPerturber():
         self.mode = mode
         self.radius = radius
         self.deterministic = True
+        self.inpaint = cv2.inpaint
     
     def __str__(self):
         return f'Cv2InpaintPerturber({self.mode},{self.radius})'
@@ -189,7 +189,7 @@ class Cv2InpaintPerturber():
         sample_masks = 1-sample_masks.round().astype(np.uint8)
         perturbed_images = np.zeros((*sample_masks.shape,3), dtype=np.uint8)
         for i, mask in enumerate(sample_masks):
-            perturbed_image = cv2.inpaint(image, mask, self.radius, self.flags)
+            perturbed_image = self.inpaint(image, mask, self.radius, self.flags)
             perturbed_images[i] = perturbed_image
         perturbed_image = (perturbed_image/255).astype(np.float32)
         return perturbed_images, samples
