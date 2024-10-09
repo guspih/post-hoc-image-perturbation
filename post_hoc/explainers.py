@@ -18,7 +18,7 @@ class OriginalCIUAttributer():
     def __init__(self, inverse=False, expected_util=0.5):
         self.inverse = inverse
         self.expected_util = expected_util
-    
+
     def __str__(self):
         return f'OriginalCIUAttributer({self.inverse},{self.expected_util})'
 
@@ -35,7 +35,7 @@ class OriginalCIUAttributer():
         '''
         M = Z.shape[1]
         point = 1 if self.inverse else 0
-        true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
+        true_y = Y[np.all(Z==1, axis=-1)][0]
         min_importance = np.full(M, true_y)
         max_importance = np.full(M, true_y)
         for y, z in zip(Y,Z):
@@ -101,7 +101,7 @@ class CIUAttributer():
         else:
             unique_Z = self.return_samples
         unique_Z = unique_Z[np.argsort(-np.sum(unique_Z, axis=1))]
-        true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
+        true_y = Y[np.all(Z==1, axis=-1)][0]
         min_y = np.full(unique_Z.shape[0], 10000.0)
         max_y = np.full(unique_Z.shape[0], -10000.0)
         for y, z0 in zip(Y,Z):
@@ -129,7 +129,6 @@ class CIUPlusAttributer1():
     def __init__(self, expected_util=0.5, return_samples=None):
         self.expected_util = expected_util
         self.return_samples = return_samples
-        self.ciu = CIUAttributer(expected_util, return_samples)
 
     def __str__(self):
         return f'CIUPlusAttributer({self.expected_util},{self.return_samples})'
@@ -154,7 +153,7 @@ class CIUPlusAttributer1():
         else:
             unique_Z = self.return_samples
         unique_Z = unique_Z[np.argsort(-np.sum(unique_Z, axis=1))]
-        true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
+        true_y = Y[np.all(Z==1, axis=-1)][0]
         min_y = np.full(unique_Z.shape[0], 10000.0)
         max_y = np.full(unique_Z.shape[0], -10000.0)
         for y, z0 in zip(Y,Z):
@@ -182,7 +181,7 @@ class CIUPlusAttributer1():
                 excess_max[excess_max>-10000.0] = 0.0
                 excess_min[excess_min<10000.0] = 0.0
             excess_mx = new_mx/z_sum
-            excess_mn = new_mn/z_sum
+            excess_mn = new_mn/z_sum # TODO: Make min and max move to true_y
             excess_max[idxs & (excess_max < excess_mx)] = excess_mx
             excess_min[idxs & (excess_min > excess_mn)] = excess_mn
             for j, z1 in enumerate(unique_Z):
@@ -319,7 +318,7 @@ class PDAAttributer():
         max_Y = np.max(Y)
         if max_Y > 1.0: #TODO: Consider removing
             Y = Y/max_Y
-        true_y = Y[np.where(np.all(Z==np.ones(M), axis=-1))]
+        true_y = Y[np.all(Z==1, axis=-1)][0]
         Z = 1-Z
         if self.divide_weight:
             Z = Z/np.sum(Z, axis=1).reshape(-1,1)
@@ -340,6 +339,36 @@ class PDAAttributer():
             true_y = true_y[0]
         return true_y-avg_relevance, np.eye(M)
 
+
+class ExplainerAttributer():
+    '''
+    Wrapper that uses one attributer to attribute the influence values of
+    another attributer.
+
+    Args:
+        explainer (callable): An attributer to explain the input data
+        attribution_explainer (callable): An Attributer to explain the explainer
+    '''
+    def __init__(self, explainer, attribution_explainer):
+        self.explainer = explainer
+        self.attribution_explainer = attribution_explainer
+
+    def __str__(self):
+        content = f'{self.explainer},{self.attribution_explainer}'
+        return f'ExplainerAttributer({content})'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            any, optional:   Any number of outputs from attribution_explainer
+            array: [X] The attribution scores of explainees to attributions
+            array: [X,M] map of attribution score to feature combinations
+        '''
+        explaination = self.explainer(Y, Z)
+        return(self.attribution_explainer(explaination[-2], explaination[-1]))
 
 # Explainer utils
 def shap_kernel(M, s):
