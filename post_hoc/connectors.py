@@ -25,18 +25,24 @@ class SegmentationPredictionPipeline():
         self.samples = None
         self.nr_model_calls = None
 
-    def __call__(self, image, model, sample_size=None):
+    def __call__(self, image, model, sample_size=None, samples=None):
         '''
         Args:
             image (array): the [H,W,C] image to explain via attribution
             model (callable): The prediction model returning [M,O] for output O
             sample_size (int): The nr N of perturbed images to use to attribute
+            samples (array): [N,M] alternative to sampler (replaces sample_size)
         Returns:
             array: [M,O] output for each of the [M,H,W,C] perturbed images
             array: [M,S] samples indexing the perturbed segments of the images
         '''
         segments, self.masks, self.transformed_masks = self.segmenter(image)
-        self.samples = self.sampler(len(self.transformed_masks), sample_size)
+        if not (sample_size is None or samples is None):
+            raise ValueError('Both sample_size and samples cannot be set')
+        if samples is None:
+            self.samples = self.sampler(len(self.transformed_masks),sample_size)
+        else:
+            self.samples = samples
         if self.batch_size is None:
             batch = [0, len(self.samples)]
         else:
@@ -105,18 +111,19 @@ class SegmentationAttribuitionPipeline():
             return self.__dict__[attr] 
         return getattr(self.prediction_pipeline, attr)
 
-    def __call__(self, image, model, sample_size=None):
+    def __call__(self, image, model, sample_size=None, samples=None):
         '''
         Args:
             image (array): the [H,W,C] image to explain via attribution
             model (callable): The prediction model returning [M,O] for output O
             sample_size (int): The nr N of samples to use to perturb
+            samples (array): [N,M] alternative to sampler (replaces sample_size)
         Returns: 
             any: List of explainer outputs for each model output O
             array, optional: List of [H,W] maps of attribution per pixel
         '''
         self.ys, perturbed_samples = self.prediction_pipeline(
-            image, model, sample_size
+            image, model, sample_size, samples
         )
         ret = [self.explainer(y, perturbed_samples) for y in self.ys.T]
         if self.per_pixel:
