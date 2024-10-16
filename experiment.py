@@ -11,6 +11,7 @@ import csv
 from datetime import datetime
 import argparse
 import itertools
+import random
 
 # Import samplers
 from post_hoc.samplers import (
@@ -18,11 +19,13 @@ from post_hoc.samplers import (
 )
 # Import explainers
 from post_hoc.explainers import (
-    OriginalCIUAttributer, SHAPAttributer, RISEAttributer,
-    LinearLIMEAttributer, PDAAttributer
+    OriginalCIUAttributer, CIUAttributer, SHAPAttributer, RISEAttributer,
+    LinearLIMEAttributer, PDAAttributer, CIUPlusAttributer1, ExplainerAttributer
 )
 # Import segmenters
-from post_hoc.image_segmenters import GridSegmenter, WrapperSegmenter, FadeMaskSegmenter
+from post_hoc.image_segmenters import (
+    GridSegmenter, WrapperSegmenter, FadeMaskSegmenter
+)
 # Import segmentation and perturbation utils
 from post_hoc.image_segmenters import perturbation_masks
 # Import image perturbers
@@ -134,6 +137,7 @@ def run_auc_experiment(
 
     # Set the seeds for consistent experiments
     np.random.seed(version)
+    random.seed(version)
 
     # If compile is set, use torch.compile to attempt to speed up experiment
     if compile:
@@ -325,7 +329,7 @@ def main():
     )
     parser.add_argument(
         '--explainers', type=str, nargs='+', default=['rise'],
-        choices=['rise', 'ciu', 'lime', 'shap', 'pda', 'inverse_ciu'],
+        #choices=['rise', 'ciu', 'lime', 'shap', 'pda', 'inverse_ciu'],
         help='Which methods to use to calculate attribution of the segments'
     )
     parser.add_argument(
@@ -565,7 +569,7 @@ def main():
         elif sampler == 'random':
             sampler = RandomSampler(sampler_kw.get('p', 0.5))
         elif sampler == 'shap':
-            sampler = ShapSampler(sampler_kw.get('ignore_warnings', False))
+            sampler = ShapSampler(sampler_kw.get('ignore_warnings', True))
         elif sampler == 'normal':
             sampler = SampleProbabilitySampler(
                 distribution='normal', **sampler_kw
@@ -606,6 +610,14 @@ def main():
             new_explainers.append(OriginalCIUAttributer(
                 inverse=True, **explainer_kw
             ))
+        #### TESTING BELOW ####
+        if 'ciu_plus' in explainers:
+            new_explainers.append(CIUPlusAttributer1())
+        if 'ciu_shap' in explainers:
+            new_explainers.append(
+                ExplainerAttributer(CIUAttributer(), SHAPAttributer())
+            )
+        #### TESTING ABOVE ####
         explainers = new_explainers
 
         # Do not use both attribution types if they are equivalent
