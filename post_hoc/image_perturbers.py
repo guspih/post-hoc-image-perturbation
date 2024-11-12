@@ -34,12 +34,13 @@ class SingleColorPerturber():
             color = '('+','.join([str(c) for c in self.color])+')'
         return f'SingleColorPerturber({color})'
 
-    def __call__(self, image, sample_masks, samples):
+    def __call__(self, image, sample_masks, samples, segment_masks):
         '''
         Args:
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
+            segment_masks (array): [S,H,W] array with masks for each segment
         Returns:
             array: [N,H,W,C] the perturbed versions of the image
             array: [N,S] identical to samples
@@ -49,7 +50,9 @@ class SingleColorPerturber():
             color = self.get_color(image)
         perturbed_segments = np.tile(image-color, (sample_masks.shape[0],1,1,1))
         perturbed_segments = (
-            perturbed_segments*sample_masks.reshape(list(sample_masks.shape)+[1])
+            perturbed_segments*sample_masks.reshape(
+                list(sample_masks.shape)+[1]
+            )
         )+color
         return perturbed_segments, samples
 
@@ -64,7 +67,7 @@ class ReplaceImagePerturber():
     Args:
         replace_images (array): [X,H,W,C] array with alternative images or None
         one_each (bool): If True, each perturbed image has a given replacement
-        random (book): If True, one replace image is chosen randomly per sample
+        random (bool): If True, one replace image is chosen randomly per sample
         replace_images_str (str): Used for printing perturber
     '''
     def __init__(
@@ -84,12 +87,16 @@ class ReplaceImagePerturber():
         content = f'{self.one_each},{self.random},{self.replace_images_str}'
         return f'ReplaceImagePerturber({content})'
 
-    def __call__(self, image, sample_masks, samples, replace_images=None):
+    def __call__(
+            self, image, sample_masks, samples, segment_masks,
+            replace_images=None
+        ):
         '''
         Args:
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
+            segment_masks (array): [S,H,W] array with masks for each segment
             replace_images (array): [X,H,W,C] images if None provided initially
         Returns:
             array: [N*X,H,W,C] perturbed versions of the image
@@ -132,12 +139,13 @@ class TransformPerturber():
         kw = ',' + kw if len(kw) > 0 else kw
         return f'TransformPerturber({self.transform_str}{kw})'
 
-    def __call__(self, image, sample_masks, samples, **kwargs):
+    def __call__(self, image, sample_masks, samples, segment_masks **kwargs):
         '''
         Args:
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
+            segment_masks (array): [S,H,W] array with masks for each segment
             kwargs: Additional arguments for the transform
         Returns:
             array: [N,H,W,C] perturbed versions of the image
@@ -171,16 +179,17 @@ class Cv2InpaintPerturber():
         self.radius = radius
         self.deterministic = True
         self.inpaint = cv2.inpaint
-    
+
     def __str__(self):
         return f'Cv2InpaintPerturber({self.mode},{self.radius})'
 
-    def __call__(self, image, sample_masks, samples):
+    def __call__(self, image, sample_masks, samples, segment_masks):
         '''
         Args:
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
+            segment_masks (array): [S,H,W] array with masks for each segment
         Returns:
             array: [N,H,W,C] perturbed versions of the image
             array: [N,S] identical to samples
@@ -211,13 +220,14 @@ class ColorHistogramPerturber():
 
     def __str__(self):
         return f'ColorHistogramPerturber({self.nr_bins})'
-    
-    def __call__(self, image, sample_masks, samples):
+
+    def __call__(self, image, sample_masks, samples, segment_masks):
         '''
         Args:
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
+            segment_masks (array): [S,H,W] array with masks for each segment
         Returns:
             array: [N*X,H,W,C] perturbed versions of the image
             array: [N*X,S] index of which segments have been perturbed
@@ -258,11 +268,11 @@ class ColorHistogramPerturber():
 
 class RandomColorPerturber():
     '''
-    Creates perturbed versions of the image by replacing the pixels indicated
-    by each mask with a randomly drawn color. Pixels to replace indicated by 0
-    and values between 0 and 1 will fade between their current color and the
-    drawn color. Colors are drawn by selecting a random pixel or uniformly from
-    the RGB domain. The perturbed images can use the same color or one each.
+    Creates perturbed versions of the image by replacing the pixels indicated by
+    each mask with a randomly drawn color. Pixels to replace indicated by 0 and
+    values between 0 and 1 will fade between their current color and the drawn
+    color. Colors are drawn by selecting a random pixel or uniformly from the
+    RGB domain. The perturbed images can use the same color or one each.
 
     Args:
         uniform_rgb (bool): Whether to draw the random color uniformly from RGB
@@ -272,16 +282,17 @@ class RandomColorPerturber():
         self.uniform_rgb = uniform_rgb
         self.draw_for_each = draw_for_each
         self.deterministic = False
-    
+
     def __str__(self):
         return f'RandomColorPerturber({self.uniform_rgb},{self.draw_for_each})'
-    
-    def __call__(self, image, sample_masks, samples):
+
+    def __call__(self, image, sample_masks, samples, segment_masks):
         '''
         Args:
             image (array): [H,W,C] array with the image to perturb
             sample_masks (array): [N,H,W] array of masks in [0,1]
             samples (array): [N,S] array indicating the perturbed segments
+            segment_masks (array): [S,H,W] array with masks for each segment
         Returns:
             array: [N,H,W,C] perturbed versions of the image
             array: [N,S] identical to samples
