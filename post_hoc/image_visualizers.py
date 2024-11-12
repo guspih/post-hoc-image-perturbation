@@ -76,7 +76,9 @@ class TopVisualizer():
             distortion_mask = to_perturb.reshape(*shape)
         else:
             distortion_mask = perturbation_masks(masks, to_perturb)
-        perturbed_image = self.perturber(image, distortion_mask, to_perturb)[0]
+        perturbed_image = self.perturber(
+            image, distortion_mask, to_perturb, masks
+        )[0]
         return perturbed_image[0]
 
 class HeatmapVisualizer():
@@ -127,7 +129,7 @@ class HeatmapVisualizer():
         heatmap = (heatmap*255).astype(np.uint8)
         heatmap = self.applyColorMap(heatmap, colormap=self.colormap)
         perturbed_image = self.perturber(
-            image, np.full(image.shape[:1], self.image_weight), None,
+            image, np.full(image.shape[:1], self.image_weight), None, masks,
             replace_images=(heatmap/255).astype(np.float32)
         )[0]
         return perturbed_image[0]

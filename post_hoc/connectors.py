@@ -8,9 +8,9 @@ class SegmentationPredictionPipeline():
     connects segmentation, sampling, perturbing, and model prediction.
 
     Args:
-        segmenter (callable): Return [H,W], [S,H,W] segments and S masks
-        sampler (callable): Return [N,S] N samples of segments to perturb
-        perturber (callable): Return [M,H,W,C], [M,S] perturbed images, samples
+        segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
+        sampler (callable): Returns [N,S] N samples of segments to perturb
+        perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
         batch_size (int): How many perturbed images to feed the model at once
     '''
     def __init__(self, segmenter, sampler, perturber, batch_size=None):
@@ -51,13 +51,13 @@ class SegmentationPredictionPipeline():
             )) + [len(self.samples)]
         ys = []
         perturbed_samples = []
-        old_k = 0
         for k in range(len(batch)-1):
             distortion_masks = perturbation_masks(
                 self.transformed_masks, self.samples[batch[k]:batch[k+1]]
             )
             perturbed_images, perturbed_sample = self.perturber(
-                image, distortion_masks, self.samples[batch[k]:batch[k+1]]
+                image, distortion_masks, self.samples[batch[k]:batch[k+1]],
+                self.masks
             )
             perturbed_samples.append(perturbed_sample)
             ys.append(
@@ -77,9 +77,9 @@ class SegmentationAttribuitionPipeline():
     attribution.
 
     Args:
-        segmenter (callable): Return [H,W], [S,H,W] segments and S masks
-        sampler (callable): Return [N,S] N samples of segments to perturb
-        perturber (callable): Return [M,H,W,C], [M,S] perturbed images, samples
+        segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
+        sampler (callable): Returns [N,S] N samples of segments to perturb
+        perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
         explainer (callable): Calculates attribution based on perturbation
         per_pixel (bool): Whether to also return a map of attribution per pixel
         batch_size (int): How many perturbed images to feed the model at once

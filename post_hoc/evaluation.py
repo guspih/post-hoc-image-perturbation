@@ -10,7 +10,7 @@ class ImageAUCEvaluator():
     deletion curve by deleting pixels/segments from most to least attributed
     (mif) or deleting the least attributed first (lif). Can also calculate both
     and return the difference between them (srg).
-    
+
     Args:
         mode (str): Which score to calculate. 'mif'/'lif' are included in 'srg'
         perturber (callable): Perturber used to remove the segments
@@ -50,9 +50,9 @@ class ImageAUCEvaluator():
             masks (array): [S,H,W] array of segment masks (None=vals per pixel)
             sample_size (int): How many perturbed images to generate
             model_idxs (index): Index for the model outputs to use
-        Returns ([array], ([array],optional)):
-            List of [O] arrays of AUC for O model outputs for each score
-            List of [sample_size, O] arrays with all model outputs
+        Returns:
+            [array]: List of [O] AUC arrays for O model outputs for each score
+            [array], optional: List of [sample_size, O] model output arrays
         '''
         scores = []
         curves = []
@@ -66,7 +66,7 @@ class ImageAUCEvaluator():
             else:
                 distortion_masks = samples
             perturbed_images, perturbed_samples = self.perturber(
-                image, distortion_masks, samples
+                image, distortion_masks, samples, masks
             )
             visuals.append(perturbed_images)
             ys = model(perturbed_images)[model_idxs]
@@ -120,6 +120,14 @@ class PointingGameEvaluator():
         vals = vals.reshape(-1)
         hit_mask = hit_mask.reshape(-1)
         return np.mean(hit_mask[np.max(vals) == vals])
+
+class AttributionSimilarityEvaluator():
+    '''
+    Calculates the similarity of two attributions according to some given
+    metrics. Can be used to evaluate if attributions are different when
+    explaining other outputs, different models, slightly perturbed inputs, etc.
+    '''
+    
 
 # Evaluation samplers
 def auc_sampler(vals, sample_size=None, mif=False, ignore_ends=False):

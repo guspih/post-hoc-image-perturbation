@@ -102,7 +102,8 @@ class RISEPipeline():
                 : ,:image.shape[0], :image.shape[1]
             ]
             perturbed_images, perturbed_sample = self.perturber(
-                image, distortion_mask, self.samples[batch[k]:batch[k+1]]
+                image, distortion_mask, self.samples[batch[k]:batch[k+1]],
+                self.masks
             )
             distortion_masks.append(distortion_mask)
             perturbed_samples.append(perturbed_sample)
