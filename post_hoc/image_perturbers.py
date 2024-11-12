@@ -312,6 +312,64 @@ class RandomColorPerturber():
         )+color
         return perturbed_segments, samples
 
+class SegmentColorPerturber:
+    '''
+    Creates perturbed versions of the image by replacing the pixels indicated by
+    each mask with a color generated from based on the sample it belongs to.
+    Pixels to replace indicated by 0 and values between 0 and 1 will fade
+    between the original and generated color. The color can be chosen as the
+    mean or median of the segment, or drawn randomly from it.
+
+    Args:
+        mode (str): How segment color is chosen (mean, median, random)
+    '''
+    def __init__(self, mode='mean'):
+        self.mode = mode
+        self.deterministic = mode!='random'
+
+    def __str__(self):
+        return f'SegmentColorPerturber({self.mode})'
+
+    def __call__(self, image, sample_masks, samples, segment_masks):
+        '''
+        Args:
+            image (array): [H,W,C] array with the image to perturb
+            sample_masks (array): [N,H,W] array of masks in [0,1]
+            samples (array): [N,S] array indicating the perturbed segments
+            segment_masks (array): [S,H,W] array with masks for each segment
+        Returns:
+            array: [N,H,W,C] perturbed versions of the image
+            array: [N,S] identical to samples
+        '''
+        img = image.reshape(-1, image.shape[2])
+        segment_masks = segment_masks.reshape(segment_masks.shape[0], -1)
+        colors = []
+        for segment_mask in segment_masks:
+            if self.mode == 'mean':
+                sm = segment_mask.reshape(*segment_mask.shape,1)
+                colors.append(
+                    np.sum(img*sm,0)/np.sum(segment_mask,0)
+                )
+            elif self.mode == 'median':
+                color = np.zeros(3)
+                for c in range(3):
+                    channel = img[:,c]
+                    indices = np.argsort(channel)
+                    cumsum = segment_mask[indices].cumsum()
+                    color[c] = channel[indices][cumsum>=(cumsum[-1]/2)][0]
+                colors.append(color)
+            elif self.mode == 'random':
+                idx = np.random.choice(
+                    img.shape[0], p=segment_mask/np.sum(segment_mask)
+                )
+                colors.append(img.reshape(-1,3)[idx])
+        colors = np.array(colors)
+        colors = colors.reshape(colors.shape[0],1,colors.shape[1])
+        segment_masks = segment_masks.reshape(*segment_masks.shape,1)
+        img = np.sum(segment_masks*colors, axis=0)/np.sum(segment_masks, axis=0)
+        img = img.reshape(image.shape)
+        return replace_image_perturbation(image, sample_masks, samples, img)
+
 
 # Perturbation utilities
 def replace_image_perturbation(
