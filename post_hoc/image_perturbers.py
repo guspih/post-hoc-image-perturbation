@@ -139,7 +139,7 @@ class TransformPerturber():
         kw = ',' + kw if len(kw) > 0 else kw
         return f'TransformPerturber({self.transform_str}{kw})'
 
-    def __call__(self, image, sample_masks, samples, segment_masks **kwargs):
+    def __call__(self, image, sample_masks, samples, segment_masks, **kwargs):
         '''
         Args:
             image (array): [H,W,C] array with the image to perturb
