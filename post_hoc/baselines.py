@@ -50,6 +50,7 @@ class RISEPipeline():
         # Variables to hold information between calls
         self.masks = None
         self.transformed_masks = None
+        self.distortion_masks = None
         self.samples = None
         self.nr_model_calls = None
         self.ys = None
@@ -73,6 +74,7 @@ class RISEPipeline():
                 mode=self.pad_mode
             )
         else:
+            h = v = 0
             pad_image = image
         segments, self.masks, self.transformed_masks = self.segmenter(pad_image)
         if not (sample_size is None or samples is None):
@@ -95,13 +97,13 @@ class RISEPipeline():
             distortion_mask = perturbation_masks(
                 self.transformed_masks, self.samples[batch[k]:batch[k+1]]
             )
-            shift_vals = np.full((len(self.samples),2),h)
+            shift_vals = np.full((len(distortion_mask),2),h)
             shift_vals[:,1] = v
             distortion_mask = shift_perturbation_masks(
                 distortion_mask, shift_vals, random=True
             )
             distortion_mask = distortion_mask[
-                : ,:image.shape[0], :image.shape[1]
+                : ,v:, h:
             ]
             perturbed_images, perturbed_sample = self.perturber(
                 image, distortion_mask, self.samples[batch[k]:batch[k+1]],
@@ -111,13 +113,13 @@ class RISEPipeline():
             perturbed_samples.append(perturbed_sample)
             ys.append(model(perturbed_images))
         perturbed_samples = np.concatenate(perturbed_samples)
-        distortion_masks = np.concatenate(distortion_masks)
+        self.distortion_masks = np.concatenate(distortion_masks)
         ys = np.concatenate(ys)
         self.nr_model_calls = len(ys)
         if len(ys.shape) == 1:
             ys = np.expand_dims(self.ys, axis=-1)
         self.ys = ys
-        return [self.explainer(y, distortion_masks) for y in ys.T]
+        return [self.explainer(y, self.distortion_masks) for y in ys.T]
 
 def LIMEPipeline(
     segmenter=None, sampler=None, perturber=None, explainer=None,
@@ -132,6 +134,8 @@ def LIMEPipeline(
         segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
         sampler (callable): Returns [N,S] N samples of segments to perturb
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
+        explainer (callable): Calculates attribution based on perturbation
+        per_pixel (bool): Whether to also return attribution maps per pixel
         batch_size (int): How many perturbed images to feed the model at once
     '''
     if segmenter is None:
@@ -144,7 +148,41 @@ def LIMEPipeline(
     if perturber is None:
         perturber = SegmentColorPerturber(mode='mean')
     if explainer is None:
+        #TODO: The default LIME uses Ridge regressor and uses a kernel to weigh
+        # samples. Change to this lime after it is implemented
         explainer = LinearLIMEAttributer()
     return SegmentationAttribuitionPipeline(
         segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
     )
+
+"""
+def SHAPPipeline(
+    segmenter=None, sampler=None, perturber=None, explainer=None,
+    per_pixel=False, batch_size=None, masker=None
+):
+    '''
+    An implementation of SHAP for images based on the default implementation in
+    the shap package. As shap does not provide one specific default version of
+    the image explainer the masker parameters need to be explicitly specified
+    unless an perturber is provided. The masker is either an image to replace
+    the original image with or 
+
+    Args:
+        segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
+        sampler (callable): Returns [N,S] N samples of segments to perturb
+        perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
+        explainer (callable): Calculates attribution based on perturbation
+        per_pixel (bool): Whether to also return attribution maps per pixel
+        batch_size (int): How many perturbed images to feed the model at once
+        masker (array/str): blur(xsize, ysize), inpaint_telea, or inpaint_ns
+    '''
+    if (perturber is None) + (masker is None) == 1:
+        raise ValueError('Exactly one of perturber and masker must be set')
+    if segmenter is None:
+
+    if sampler is None:
+
+    if perturber is None:
+
+    if explainer is None:
+"""
