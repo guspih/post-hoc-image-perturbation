@@ -178,11 +178,16 @@ def shift_perturbation_masks(masks, shift, random=False):
         shift = (np.random.rand(*shift.shape)*shift).astype(int)
     if len(shift.shape) == 2:
         if shift.shape[0] != masks.shape[0]:
-            raise ValueError('size of shift must equal masks in dim 0')
+            raise ValueError(
+                f'shape of shift {shift.shape} and masks {masks.shape} must be '
+                f'equal in dim 0'
+            )
         for i, shf in enumerate(shift):
             masks[i] = np.roll(masks[i], shf, axis=(1,0))
         return masks
     elif len(shift.shape) == 1:
         return np.roll(masks, shift, axis=(2,1))
     else:
-        raise ValueError('shift must have shape [N,2] or [2]')
+        raise ValueError(
+            f'shift must have shape [N,2] or [2] but got {shift.shape}'
+        )
