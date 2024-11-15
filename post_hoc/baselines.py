@@ -6,7 +6,7 @@ from .image_segmenters import (
 )
 from .samplers import UniqueRandomSampler
 from .image_perturbers import SingleColorPerturber, SegmentColorPerturber
-from .explainers import RISEAttributer, LinearLIMEAttributer
+from .explainers import RISEAttributer, ScikitLIMEAttributer
 from .connectors import SegmentationAttribuitionPipeline
 
 '''
@@ -148,9 +148,15 @@ def LIMEPipeline(
     if perturber is None:
         perturber = SegmentColorPerturber(mode='mean')
     if explainer is None:
-        #TODO: The default LIME uses Ridge regressor and uses a kernel to weigh
-        # samples. Change to this lime after it is implemented
-        explainer = LinearLIMEAttributer()
+        from sklearn.linear_model import Ridge
+        regressor = Ridge(alpha=1, fit_intercept=True)
+        from sklearn.metrics import pairwise_distances
+        def kernel(Z):
+            d = pairwise_distances(
+                Z, np.ones((1,Z.shape[1])), metric='cosine'
+            ).ravel()
+            return np.sqrt(np.exp(-(d ** 2) / 0.25 ** 2))
+        explainer = ScikitLIMEAttributer(regressor=regressor, kernel=kernel)
     return SegmentationAttribuitionPipeline(
         segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
     )
