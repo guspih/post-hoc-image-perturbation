@@ -219,16 +219,10 @@ class SHAPAttributer():
             array: [M] the SHAP values of each feature
             array: [M,M] map from attribution scores to features
         '''
-        M = Z.shape[1]
-        S = Z.sum(axis=1)
-        Z = np.concatenate((Z, torch.ones((Z.shape[0], 1))), axis=1)
-        S_vals = np.unique(S)
-        kernel_vals = np.sqrt(shap_kernel(M, S_vals))
-        sqrt_pis = np.zeros(np.max(S_vals)+1)
-        sqrt_pis[S_vals] = kernel_vals
-        sqrt_pis = sqrt_pis[S]
-        shap = np.linalg.lstsq(sqrt_pis[:, None] * Z, sqrt_pis * Y, rcond=None)
-        return shap[0][-1], shap[0][:-1], np.eye(M)
+        Z1 = np.concatenate((Z, torch.ones((Z.shape[0], 1))), axis=1)
+        sqrt_pis = shap_kernel(Z1)
+        shap = np.linalg.lstsq(sqrt_pis[:, None] * Z1, sqrt_pis * Y, rcond=None)
+        return shap[0][-1], shap[0][:-1], np.eye(Z.shape[1])
 
 class RISEAttributer():
     '''
@@ -270,6 +264,47 @@ class LinearLIMEAttributer():
         '''
         Z = np.concatenate((Z, torch.ones((Z.shape[0], 1))), axis=1)
         return np.linalg.lstsq(Z, Y, rcond=None)[0][:-1], np.eye(Z.shape[1])
+
+class ScikitLIMEAttributer():
+    '''
+    Calculates attribution of each feature with LIME by fitting the given
+    scikit-learn model (or other model with similar API). The influence of each
+    sample is determined by the given kernel. The attribution of
+    each feature is their weight in the linear surrogate.
+
+    Args:
+        regressor (callable):
+        kernel (callable):
+    '''
+    def __init__(self, regressor, kernel):
+        self.regressor = regressor
+        self.kernel = kernel
+
+    def __str__(self):
+        if hasattr(self.regressor, '__name__'):
+            regressor_str = self.regressor.__name__
+        else:
+            regressor_str = self.regressor.__class__.__name__
+        if hasattr(self.kernel, '__name__'):
+            kernel_str = self.kernel.__name__
+        else:
+            kernel_str = self.kernel.__class__.__name__
+        return f'ScikitLIMEAttributer({regressor_str},{kernel_str})'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            array: [M] the surrogate weights used as attributions
+            array: [M,M] map fromattribution scores to features
+        '''
+        weights = self.kernel(Z)
+        self.regressor.fit(Z, Y, sample_weight=weights)
+        return (
+            self.regressor.intercept_, self.regressor.coef_, np.eye(Z.shape[1])
+        )
 
 class PDAAttributer():
     '''
@@ -369,19 +404,25 @@ class ExplainerAttributer():
         return(self.attribution_explainer(explaination[-2], explaination[-1]))
 
 # Explainer utils
-def shap_kernel(M, s):
+def shap_kernel(Z):
     '''
-    Hepler function for KernelSHAP that calculates the weight of a sample using
-    the nr of features (M) and the nr of included features in each sample (s).
-    
+    Hepler function for KernelSHAP that calculates the weight of the samples (Z)
+    using the nr of features and the nr of included features in each sample.
+
     Args:
-        M (int): The number of features in the sample
-        s (array): [N] array of the number of included features in each sample
+        Z (array): [N,M] array indicating which features are included (=1)
     Returns:
-        array: [N] the SHAP kernel values for each s given M
+        array: [N] the SHAP kernel weight for each sample
     '''
     import scipy.special
-    return np.nan_to_num(
-        (M - 1) / (scipy.special.binom(M, s) * s * (M - s)),
+    M = Z.shape[1]
+    S = Z.sum(axis=1).astype(int)
+    S_vals = np.unique(S)
+    kernel_vals = np.nan_to_num(
+        (M - 1) / (scipy.special.binom(M, S_vals) * S_vals * (M - S_vals)),
         posinf=100000, neginf=100000
     )
+    sqrt_pis = np.zeros(np.max(S_vals)+1)
+    sqrt_pis[S_vals] = kernel_vals
+    sqrt_pis = sqrt_pis[S]
+    return sqrt_pis
