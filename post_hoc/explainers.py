@@ -352,7 +352,6 @@ class PDAAttributer():
         max_Y = np.max(Y)
         if max_Y > 1.0: #TODO: Consider removing
             Y = Y/max_Y
-        true_y = Y[np.all(Z==1, axis=-1)][0]
         Z = 1-Z
         if self.divide_weight:
             Z = Z/np.sum(Z, axis=1).reshape(-1,1)
@@ -360,17 +359,12 @@ class PDAAttributer():
         weight = np.sum(Z, axis=0)
         avg_relevance = relevance/weight
         if not self.mode == 'probdiff':
-            true_y = (true_y*self.n+1)/(self.n+self.c)
             avg_relevance = (avg_relevance*self.n+1)/(self.n+self.c)
             if self.mode == 'evidence':
-                true_y = true_y/(1-true_y)
                 avg_relevance = avg_relevance/(1-avg_relevance)
-            true_y = np.log2(true_y)
             avg_relevance = np.log2(avg_relevance)
-        if len(true_y) == 0: #TODO: Consider removing
-            true_y = 0
-        elif len(true_y) > 1:
-            true_y = true_y[0]
+            true_y = avg_relevance[np.all(Z==1, axis=-1)]
+            true_y = 0 if len(true_y) == 0 else true_y[0]
         return true_y-avg_relevance, np.eye(M)
 
 class ExplainerAttributer():
