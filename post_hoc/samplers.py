@@ -186,7 +186,7 @@ class ShapSampler():
         self.inverse = inverse
         self.ignore_warnings = ignore_warning
         self.deterministic = True
-    
+
     def __str__(self):
         return f'ShapSampler()'
 
@@ -256,6 +256,7 @@ class MultiSampler():
             self.split = np.full(len(samplers), 1/len(samplers))
         else:
             self.split = split/np.sum(split)
+        self.deterministic = np.all([s.deterministic for s in samplers])
 
     def __str__(self):
         content = f'[{",".join(self.samplers)}],[{",".join(self.split)}]'
@@ -287,6 +288,7 @@ class AllNoneWrapperSampler():
     appended.
 
     Args:
+        sampler (callable): Returns [N,M] samples indicating features to perturb
         add_all (bool): If True, adds a sample where all features are perturbed
         add_none (bool): If True, adds a sample where no features are perturbed
     '''
@@ -296,7 +298,8 @@ class AllNoneWrapperSampler():
         self.sampler = sampler
         self.add_all = add_all
         self.add_none = add_none
-    
+        self.deterministic = sampler.deterministic
+
     def __str__(self):
         content = f'{self.sampler},{self.add_all},{self.add_none}'
         return f'AllNoneWrapperSampler({content})'
@@ -314,4 +317,59 @@ class AllNoneWrapperSampler():
             samples = np.concatenate((samples, np.zeros((1,M))))
         if self.add_none:
             samples = np.concatenate((samples, np.ones((1,M))))
+        return samples
+
+class MultiplyWrapperSampler():
+    '''
+    Creates an array of samples indicating which features to perturb (0) and
+    which to include (1) of a given size. Samples are taken from a given
+    sampler and multiplied so that some or all samples appear multiple times.
+
+    Args:
+        sampler (callable): Returns [N,M] samples indicating features to perturb
+        scalar (float): How many times to repeat each drawn sample
+        multiply_none (bool): Should samples without perturbations be multiplied
+        keep_size (bool): If True, sample_size/scalar is drawn from sampler
+    '''
+    def __init__(self, sampler, scalar, multiply_none=False, keep_size=False):
+        self.sampler = sampler
+        self.scalar = scalar
+        self.multiply_none = multiply_none
+        self.keep_size = keep_size
+        self.deterministic = sampler.deterministic
+
+    def __str__(self):
+        content = (
+            f'{self.sampler},{self.scalar},{self.multiply_none},'
+            f'{self.keep_size}'
+        )
+        return f'MultiplyWrapperSampler({content})'
+
+    def __call__(self, M, sample_size):
+        '''
+        Args:
+            M (int): Nr of features in each sample that can be perturbed
+            sample_size (int): Nr of different samples to generate
+        Returns:
+            array: [sample_size*scalar,M] index of the features to perturb
+        '''
+        if self.keep_size:
+            sample_size = int(sample_size/self.scalar)
+        samples = self.sampler(M, sample_size)
+        print(samples.shape)
+        none_idxs = []
+        if not self.multiply_none:
+            none_idxs = np.argwhere(np.all(samples==1, axis=-1))
+            if len(none_idxs) != 0:
+                samples = np.delete(samples, none_idxs, axis=0)
+        scalars = np.full(len(samples), int(self.scalar))
+        add_scalars = np.zeros(len(samples))
+        add_scalars[:int(self.scalar-int(self.scalar)*len(samples))] = 1
+        scalars = scalars + add_scalars
+        print(samples.shape)
+        samples = np.repeat(samples, scalars.astype(int), axis=0)
+        if len(none_idxs) != 0:
+            print(samples.shape)
+            none = np.ones((len(none_idxs), samples.shape[1]))
+            samples = np.concatenate((samples, none), axis=0)
         return samples
