@@ -4,9 +4,15 @@ from .image_segmenters import (
     perturbation_masks, shift_perturbation_masks, GridSegmenter,
     WrapperSegmenter
 )
-from .samplers import UniqueRandomSampler
-from .image_perturbers import SingleColorPerturber, SegmentColorPerturber
-from .explainers import RISEAttributer, ScikitLIMEAttributer
+from .samplers import (
+    UniqueRandomSampler, SingleFeatureSampler, MultiplyWrapperSampler
+)
+from .image_perturbers import (
+    SingleColorPerturber, SegmentColorPerturber, ColorHistogramPerturber
+)
+from .explainers import (
+    RISEAttributer, ScikitLIMEAttributer, OriginalCIUAttributer, PDAAttributer
+)
 from .connectors import SegmentationAttribuitionPipeline
 
 '''
@@ -160,6 +166,81 @@ def LIMEPipeline(
     return SegmentationAttribuitionPipeline(
         segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
     )
+
+def CIUPipeline(
+    segmenter=None, sampler=None, perturber=None, explainer=None,
+    strategy='straight', per_pixel=False, batch_size=None
+):
+    '''
+    An implementation of CIU for images based on the default implementation in
+    the py_ciu_image python package. By default gives the same behavior as the
+    py_ciu_image packages does, but some parameters can be changes. The strategy
+    parameter can be used to decide whether CIU is calculated for each feature
+    by perturbing that feature (straight) or all other features (inverse).
+
+    Args:
+        segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
+        sampler (callable): Returns [N,S] N samples of segments to perturb
+        perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
+        explainer (callable): Calculates attribution based on perturbation
+        strategy (str): Calculate effect by removing the feature or all others
+        per_pixel (bool): Whether to also return attribution maps per pixel
+        batch_size (int): How many perturbed images to feed the model at once
+    '''
+    inverse = strategy=='inverse'
+    if segmenter is None:
+        from skimage.segmentation import slic
+        segmenter = WrapperSegmenter(
+            slic, n_segments=50, compactness=10, start_label=0
+        )
+    if sampler is None:
+        sampler = SingleFeatureSampler(inverse=inverse, add_none=True)
+    if perturber is None:
+        perturber = SingleColorPerturber((0.745,0.745,0.745))
+    if explainer is None:
+        explainer = OriginalCIUAttributer()
+    return SegmentationAttribuitionPipeline(
+        segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
+    )
+
+def PDAPipeline(
+    segmenter=None, sampler=None, perturber=None, explainer=None,
+    mode='evidence', per_pixel=False, batch_size=None
+):
+    '''
+    An implementation of PDA for images based on the implementation details from
+    the "Explain Black-box Image Classifications Using Superpixel-based
+    Interpretation" paper which introduces PDA for images. By default it gives
+    the same behavior but some parameters can be changes. If no explainer is
+    provided the mode parameter will determine how PDA is calculated.
+
+    Args:
+        segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
+        sampler (callable): Returns [N,S] N samples of segments to perturb
+        perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
+        explainer (callable): Calculates attribution based on perturbation
+        mode (str): PDA mode to use ('probdiff', 'infodiff', 'evidence')
+        per_pixel (bool): Whether to also return attribution maps per pixel
+        batch_size (int): How many perturbed images to feed the model at once
+    '''
+    if segmenter is None:
+        # Value of compactness is not specified in the paper
+        from skimage.segmentation import slic
+        segmenter = WrapperSegmenter(
+            slic, n_segments=200, compactness=10, start_label=0
+        )
+    if sampler is None:
+        sampler = MultiplyWrapperSampler(
+            SingleFeatureSampler(add_none=True), scalar=10, multiply_none=False
+        )
+    if perturber is None:
+        perturber = ColorHistogramPerturber(nr_bins=8)
+    if explainer is None:
+        explainer = PDAAttributer(mode=mode)
+    return SegmentationAttribuitionPipeline(
+        segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
+    )
+
 
 """
 def SHAPPipeline(
