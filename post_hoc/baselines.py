@@ -128,7 +128,7 @@ class RISEPipeline():
         return [self.explainer(y, self.distortion_masks) for y in ys.T]
 
 def LIMEPipeline(
-    segmenter=None, sampler=None, perturber=None, explainer=None,
+    segmenter=None, sampler=None, perturber=None, explainers=None,
     per_pixel=False, batch_size=None
 ):
     '''
@@ -140,7 +140,7 @@ def LIMEPipeline(
         segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
         sampler (callable): Returns [N,S] N samples of segments to perturb
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
-        explainer (callable): Calculates attribution based on perturbation
+        explainers ([callable]): Attributes features from samples and outputs
         per_pixel (bool): Whether to also return attribution maps per pixel
         batch_size (int): How many perturbed images to feed the model at once
     '''
@@ -153,7 +153,7 @@ def LIMEPipeline(
         sampler = UniqueRandomSampler()
     if perturber is None:
         perturber = SegmentColorPerturber(mode='mean')
-    if explainer is None:
+    if explainers is None:
         from sklearn.linear_model import Ridge
         regressor = Ridge(alpha=1, fit_intercept=True)
         from sklearn.metrics import pairwise_distances
@@ -162,13 +162,13 @@ def LIMEPipeline(
                 Z, np.ones((1,Z.shape[1])), metric='cosine'
             ).ravel()
             return np.sqrt(np.exp(-(d ** 2) / 0.25 ** 2))
-        explainer = ScikitLIMEAttributer(regressor=regressor, kernel=kernel)
+        explainers = [ScikitLIMEAttributer(regressor=regressor, kernel=kernel)]
     return SegmentationAttribuitionPipeline(
-        segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
+        segmenter, sampler, perturber, explainers, per_pixel, batch_size=None
     )
 
 def CIUPipeline(
-    segmenter=None, sampler=None, perturber=None, explainer=None,
+    segmenter=None, sampler=None, perturber=None, explainers=None,
     strategy='straight', per_pixel=False, batch_size=None
 ):
     '''
@@ -182,7 +182,7 @@ def CIUPipeline(
         segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
         sampler (callable): Returns [N,S] N samples of segments to perturb
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
-        explainer (callable): Calculates attribution based on perturbation
+        explainers ([callable]): Attributes features from samples and outputs
         strategy (str): Calculate effect by removing the feature or all others
         per_pixel (bool): Whether to also return attribution maps per pixel
         batch_size (int): How many perturbed images to feed the model at once
@@ -197,14 +197,14 @@ def CIUPipeline(
         sampler = SingleFeatureSampler(inverse=inverse, add_none=True)
     if perturber is None:
         perturber = SingleColorPerturber((0.745,0.745,0.745))
-    if explainer is None:
-        explainer = OriginalCIUAttributer()
+    if explainers is None:
+        explainers = [OriginalCIUAttributer()]
     return SegmentationAttribuitionPipeline(
-        segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
+        segmenter, sampler, perturber, explainers, per_pixel, batch_size=None
     )
 
 def PDAPipeline(
-    segmenter=None, sampler=None, perturber=None, explainer=None,
+    segmenter=None, sampler=None, perturber=None, explainers=None,
     mode='evidence', per_pixel=False, batch_size=None
 ):
     '''
@@ -218,7 +218,7 @@ def PDAPipeline(
         segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
         sampler (callable): Returns [N,S] N samples of segments to perturb
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
-        explainer (callable): Calculates attribution based on perturbation
+        explainers ([callable]): Attributes features from samples and outputs
         mode (str): PDA mode to use ('probdiff', 'infodiff', 'evidence')
         per_pixel (bool): Whether to also return attribution maps per pixel
         batch_size (int): How many perturbed images to feed the model at once
@@ -235,10 +235,10 @@ def PDAPipeline(
         )
     if perturber is None:
         perturber = ColorHistogramPerturber(nr_bins=8)
-    if explainer is None:
-        explainer = PDAAttributer(mode=mode)
+    if explainers is None:
+        explainers = [PDAAttributer(mode=mode)]
     return SegmentationAttribuitionPipeline(
-        segmenter, sampler, perturber, explainer, per_pixel, batch_size=None
+        segmenter, sampler, perturber, explainers, per_pixel, batch_size=None
     )
 
 
@@ -252,7 +252,7 @@ def SHAPPipeline(
     the shap package. As shap does not provide one specific default version of
     the image explainer the masker parameters need to be explicitly specified
     unless an perturber is provided. The masker is either an image to replace
-    the original image with or 
+    the original image with or
 
     Args:
         segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
