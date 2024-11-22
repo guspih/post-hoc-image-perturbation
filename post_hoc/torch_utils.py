@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-
 class TorchModelWrapper(nn.Module):
     '''
     Wraps around a PyTorch model and makes it work with numpy code.

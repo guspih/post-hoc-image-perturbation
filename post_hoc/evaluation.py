@@ -86,7 +86,7 @@ class ImageAUCEvaluator():
         if self.return_visuals:
             ret.append(visuals)
         return ret[0] if len(ret) == 1 else ret
-    
+
     def get_normalized(self):
         curves = []
         scores = []
@@ -127,15 +127,15 @@ class AttributionSimilarityEvaluator():
     metrics. Can be used to evaluate if attributions are different when
     explaining other outputs, different models, slightly perturbed inputs, etc.
     '''
-    
+
 
 # Evaluation samplers
 def auc_sampler(vals, sample_size=None, mif=False, ignore_ends=False):
     '''
     Creates an array of samples where each following sample has more deleted
-    features than the preceeding one. The most or least influential features,
-    as determined by a given attribution array, are deleted first. Deleting
-    the least influential fisrst (lif) is equivalent to inserting the most 
+    features than the preceeding one. The most or least influential features, as
+    determined by a given attribution array, are deleted first. Deleting the
+    least influential first (lif) is equivalent to inserting the most
     influential first (insertion score).
 
     Args:

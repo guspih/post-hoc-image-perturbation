@@ -6,8 +6,8 @@ import warnings
 
 class RandomSampler():
     '''
-    Creates an array of samples where each feature is included (=1) with a
-    given probability and to be perturbed (=0) otherwise.
+    Creates an array of samples where each feature is included (=1) with a given
+    probability and to be perturbed (=0) otherwise.
 
     Args:
         p (float): Probability in [0,1] that a feature is included a sample
@@ -24,7 +24,7 @@ class RandomSampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: 
+        Returns:
             array: [sample_size, M] index of the features to perturb per sample
         '''
         if sample_size is None:
@@ -45,7 +45,7 @@ class UniqueRandomSampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: 
+        Returns:
             array: [sample_size, M] index of the features to perturb per sample
         '''
         if sample_size is None:
@@ -69,7 +69,7 @@ class SampleProbabilitySampler():
     Creates and array of samples where each feature is set to be perturbed (=0)
     or not to be perturbed (=1) with a probability that, for each sample, is
     drawn from a given distribution. Available distributions are 'uniform',
-    'normal' (truncated), and 'beta'. The distribution probabilities can be 
+    'normal' (truncated), and 'beta'. The distribution probabilities can be
     inversed.
 
     Args:
@@ -95,13 +95,13 @@ class SampleProbabilitySampler():
         kw = ',' + kw if len(kw) > 0 else kw
         content = f'{self.distribution},{self.inverse}{kw}'
         return f'SampleProbabilitySampler({content})'
-    
+
     def __call__(self, M, sample_size=None):
         '''
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: 
+        Returns:
             array: [sample_size, M] index of the features to perturb per sample
         '''
         if sample_size is None:
@@ -127,8 +127,8 @@ class SingleFeatureSampler():
     '''
     Creates an array of all possible samples where only a single feature is
     indicated to be perturbed (set to 0) or, if inverse, is indicated to not be
-    perturbed (set to 1). Optionally, adds the samples where all/no features
-    are perturbed.
+    perturbed (set to 1). Optionally, adds the samples where all/no features are
+    perturbed.
 
     Args:
         inverse (bool): Whether all features but one should be set to 0 (True)
@@ -140,7 +140,7 @@ class SingleFeatureSampler():
         self.add_all = add_all
         self.add_none = add_none
         self.deterministic = True
-    
+
     def __str__(self):
         content = f'{self.inverse},{self.add_all},{self.add_none}'
         return f'SingleFeatureSampler({content})'
@@ -174,9 +174,9 @@ class SingleFeatureSampler():
 class ShapSampler():
     '''
     Creates an array of samples indicating which features to perturb (0) and
-    which to include (1) of a given size. Will first create all samples with
-    all values the same, then all with a single feature included/perturbed,
-    then all with two feature included/perturbed, and so on.
+    which to include (1) of a given size. Will first create all samples with all
+    values the same, then all with a single feature included/perturbed, then all
+    with two feature included/perturbed, and so on.
 
     Args:
         inverse (bool): Whether to order the many perturbations first instead
@@ -195,7 +195,7 @@ class ShapSampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: 
+        Returns:
             array: [sample_size, M] index of the features to perturb per sample
         '''
         if sample_size is None:
@@ -221,7 +221,7 @@ class ShapSampler():
             r = r//2 if r%2==0 else M-((r-1)//2)
         #TODO: Figure out how to handle 0 and M features
         #for r in range(2,M+1):
-        #    r = r//2 if r%2==0 else M-((r-1)//2) 
+        #    r = r//2 if r%2==0 else M-((r-1)//2)
             comb = itertools.combinations(range(M), r=r)
             for idx in comb:
                 if i == sample_size:
@@ -267,7 +267,7 @@ class MultiSampler():
         Args:
             M (int): Nr of features in each sample that can be perturbed
             sample_size (int): Nr of different samples to generate
-        Returns: 
+        Returns:
             array: [sample_size, M] index of the features to perturb per sample
         '''
         float_sizes = self.split*sample_size
@@ -283,9 +283,8 @@ class MultiSampler():
 class AllNoneWrapperSampler():
     '''
     Creates an array of samples indicating which features to perturb (0) and
-    which to include (1) of a given size. Samples are taken from a given
-    sampler and the indicated samples of all or no features being perturbed is
-    appended.
+    which to include (1) of a given size. Samples are taken from a given sampler
+    and the indicated samples of all or no features being perturbed is appended.
 
     Args:
         sampler (callable): Returns [N,M] samples indicating features to perturb
@@ -322,8 +321,8 @@ class AllNoneWrapperSampler():
 class MultiplyWrapperSampler():
     '''
     Creates an array of samples indicating which features to perturb (0) and
-    which to include (1) of a given size. Samples are taken from a given
-    sampler and multiplied so that some or all samples appear multiple times.
+    which to include (1) of a given size. Samples are taken from a given sampler
+    and multiplied so that some or all samples appear multiple times.
 
     Args:
         sampler (callable): Returns [N,M] samples indicating features to perturb

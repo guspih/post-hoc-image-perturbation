@@ -6,9 +6,9 @@ from .image_segmenters import perturbation_masks
 class TopVisualizer():
     '''
     Creates a numpy image showing the top attributed segments by perturbing the
-    lower attributed segments. How many top segments to display can be set as
-    a specific nr (k), fraction of total attribution (p), percentage of
-    segments (percent), or segments with attribution above a given treshold.
+    lower attributed segments. How many top segments to display can be set as a
+    specific nr (k), fraction of total attribution (p), percentage of segments
+    (percent), or segments with attribution above a given treshold.
 
     Args:
         k (int): Nr of top segments to display

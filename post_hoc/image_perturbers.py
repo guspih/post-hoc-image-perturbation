@@ -3,11 +3,11 @@ import numpy as np
 # Perturbers
 class SingleColorPerturber():
     '''
-    Creates perturbed versions of the image by replacing the pixels indicated
-    by each perturbation mask with a given color. Pixels to replace indicated
-    by 0 and values between 0 and 1 will fade between their current color and
-    the given color. If color is 'mean' or 'median' the color is instead chosen
-    as the mean or median of the image.
+    Creates perturbed versions of the image by replacing the pixels indicated by
+    each perturbation mask with a given color. Pixels to replace indicated by 0
+    and values between 0 and 1 will fade between their current color and the
+    given color. If color is 'mean' or 'median' the color is instead chosen as
+    the mean or median of the image.
 
     Args:
         color (float,float,float): The color to replace pixels or mean/median
@@ -58,11 +58,11 @@ class SingleColorPerturber():
 
 class ReplaceImagePerturber():
     '''
-    Creates perturbed versions of the image by replacing the pixels indicated
-    by each perturbation mask with the corresponding pixel from other images.
+    Creates perturbed versions of the image by replacing the pixels indicated by
+    each perturbation mask with the corresponding pixel from other images.
     Pixels to replace indicated by 0 and values between 0 and 1 will fade
-    between the color of the corresponding pixels. If replace_images is None
-    the replace images are expected as part of the call.
+    between the color of the corresponding pixels. If replace_images is None the
+    replace images are expected as part of the call.
 
     Args:
         replace_images (array): [X,H,W,C] array with alternative images or None
@@ -116,10 +116,10 @@ class ReplaceImagePerturber():
 
 class TransformPerturber():
     '''
-    Creates perturbed versions of the image by replacing the pixels indicated
-    by each perturbation mask with the corresponding pixel from a transformed
-    version of the image. Pixels to replace indicated by 0 and values between
-    0 and 1 will fade between the color of the corresponding pixels.
+    Creates perturbed versions of the image by replacing the pixels indicated by
+    each perturbation mask with the corresponding pixel from a transformed
+    version of the image. Pixels to replace indicated by 0 and values between 0
+    and 1 will fade between the color of the corresponding pixels.
 
     Args:
         transform (callable): Callable that takes image and transforms it
@@ -205,9 +205,9 @@ class Cv2InpaintPerturber():
 
 class ColorHistogramPerturber():
     '''
-    Creates perturbed versions of the image by replacing the pixels indicated
-    by each perturbation mask with the median color of one bins of a histogram
-    of the image chosen randomly weighted by the size of the bins. Pixels to
+    Creates perturbed versions of the image by replacing the pixels indicated by
+    each perturbation mask with the median color of one bins of a histogram of
+    the image chosen randomly weighted by the size of the bins. Pixels to
     replace indicated by 0 and values between 0 and 1 will fade between the
     color of the corresponding pixels.
 
@@ -276,7 +276,7 @@ class RandomColorPerturber():
 
     Args:
         uniform_rgb (bool): Whether to draw the random color uniformly from RGB
-        draw_for_each (bool): Whether to randomize a color for each 
+        draw_for_each (bool): Whether to randomize a color for each
     '''
     def __init__(self, uniform_rgb=False, draw_for_each=False):
         self.uniform_rgb = uniform_rgb
@@ -296,7 +296,7 @@ class RandomColorPerturber():
         Returns:
             array: [N,H,W,C] perturbed versions of the image
             array: [N,S] identical to samples
-        ''' 
+        '''
         if self.draw_for_each:
             nr = sample_masks.shape[0]
         else:
@@ -376,8 +376,8 @@ def replace_image_perturbation(
     image, sample_masks, samples, replace_images, one_each=False
 ):
     '''
-    Creates perturbed versions of the image by replacing the pixels indicated
-    by each perturbation mask with the corresponding pixel from other images.
+    Creates perturbed versions of the image by replacing the pixels indicated by
+    each perturbation mask with the corresponding pixel from other images.
     Pixels to replace indicated by 0 and values between 0 and 1 will fade
     between the color of the corresponding pixels.
 

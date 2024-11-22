@@ -22,13 +22,13 @@ class WrapperSegmenter():
         kw = ','.join(np.sort([f'{k}={self.kwargs[k]}' for k in self.kwargs]))
         kw = ',' + kw if len(kw) > 0 else kw
         return f'WrapperSegmenter({self.segmenter_str}{kw})'
-    
+
     def __call__(self, image, **kwargs):
         '''
         Args:
             image (array): The image to segment as an array of shape [H,W,C]
             **kwargs: Additional arguments for the segmenter
-        Returns (array, array, array): 
+        Returns (array, array, array):
             [H,W] array of segment indices
             [S,H,W] array with masks for each of the S segments
             [S,H,W] array with masks for each of the S segments
@@ -61,7 +61,7 @@ class GridSegmenter():
         '''
         Args:
             image (array): The image to segment as an array of shape [H,W,C]
-        Returns (array, array, array): 
+        Returns (array, array, array):
             [H,W] array of segment indices
             [S,H,W] array with unfaded masks for each of the S segments
             [S,H,W] array with masks for each of the S segments
@@ -84,7 +84,7 @@ class GridSegmenter():
         transformed_masks = self.resize(
             masks, (self.h_nr*self.v_nr,h_size,v_size), mode='reflect',
             order=1, anti_aliasing=False
-        )   
+        )
         return segments, segment_masks, transformed_masks
 
 class FadeMaskSegmenter():
@@ -114,7 +114,7 @@ class FadeMaskSegmenter():
         '''
         Args:
             image (array): The image to segment as an array of shape [H,W,C]
-        Returns (array, array, array): 
+        Returns (array, array, array):
             [H,W] array of segment indices
             [S,H,W] array with unfaded masks for each of the S segments
             [S,H,W] array with faded masks for each of the S segments

@@ -6,8 +6,8 @@ class OriginalCIUAttributer():
     '''
     Calculates CIU values without intermediate concepts according to the
     py.ciu.image package. Inverse importance is primarily used with inverse
-    inverse sampling (see naive_ciu_sampler). Expected utility is used in
-    influence calculation to determine which features have positive influence.
+    sampling (see naive_ciu_sampler). Expected utility is used in influence
+    calculation to determine which features have positive influence.
 
     Args:
         inverse (bool): Whether to calculate importance as 1-importance
@@ -60,14 +60,14 @@ class OriginalCIUAttributer():
 
 class CIUAttributer():
     '''
-    Calculates CIU values for each feature combination in return_samples or
-    each feature combination in Z if return_samples is None. Importance of a
-    feature combination is the maximum difference in Y between the inputs where
-    only some or none of the given features have been perturbed. Utility of a
-    feature combination is the difference between Y of the original inputs and
-    the minumum Y where the inputs where only some or none of the given
-    features have been perturbed. Influence is the utility subtracted by the
-    expected utility and then scaled by the importance.
+    Calculates CIU values for each feature combination in return_samples or each
+    feature combination in Z if return_samples is None. Importance of a feature
+    combination is the maximum difference in Y between the inputs where only
+    some or none of the given features have been perturbed. Utility of a feature
+    combination is the difference between Y of the original inputs and the
+    minumum Y where the inputs where only some or none of the given features
+    have been perturbed. Influence is the utility subtracted by the expected
+    utility and then scaled by the importance.
 
     Args:
         expected_util (float/[float]]): Sets the baseline for influence>0
@@ -269,8 +269,8 @@ class ScikitLIMEAttributer():
     '''
     Calculates attribution of each feature with LIME by fitting the given
     scikit-learn model (or other model with similar API). The influence of each
-    sample is determined by the given kernel. The attribution of
-    each feature is their weight in the linear surrogate.
+    sample is determined by the given kernel. The attribution of each feature is
+    their weight in the linear surrogate.
 
     Args:
         regressor (callable):
