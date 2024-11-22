@@ -25,7 +25,9 @@ class SegmentationPredictionPipeline():
         self.samples = None
         self.nr_model_calls = None
 
-    def __call__(self, image, model, sample_size=None, samples=None):
+    def __call__(
+        self, image, model, sample_size=None, samples=None, output_idxs=...
+    ):
         '''
         Args:
             image (array): the [H,W,C] image to explain via attribution
@@ -61,7 +63,7 @@ class SegmentationPredictionPipeline():
             )
             perturbed_samples.append(perturbed_sample)
             ys.append(
-                model(perturbed_images)
+                model(perturbed_images)[:,output_idxs]
             )
         ys = np.concatenate(ys)
         perturbed_samples = np.concatenate(perturbed_samples)
@@ -73,25 +75,25 @@ class SegmentationPredictionPipeline():
 class SegmentationAttribuitionPipeline():
     '''
     Creates an image attribution pipeline that automatically performs and
-    connects segmentation, sampling, perturbing, model prediction, and 
+    connects segmentation, sampling, perturbing, model prediction, and
     attribution.
 
     Args:
         segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
         sampler (callable): Returns [N,S] N samples of segments to perturb
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
-        explainer (callable): Calculates attribution based on perturbation
-        per_pixel (bool): Whether to also return a map of attribution per pixel
+        explainers ([callable]): Attributes features from samples and outputs
+        per_pixel (bool): Whether to also return attribution maps per pixel
         batch_size (int): How many perturbed images to feed the model at once
     '''
     def __init__(
-        self, segmenter, sampler, perturber, explainer, per_pixel=False,
+        self, segmenter, sampler, perturber, explainers, per_pixel=False,
         batch_size=None
     ):
         self.segmenter = segmenter
         self.sampler = sampler
         self.perturber = perturber
-        self.explainer = explainer
+        self.explainers = explainers
         self.per_pixel = per_pixel
         self.batch_size = batch_size
 
@@ -102,34 +104,39 @@ class SegmentationAttribuitionPipeline():
 
         # Variables to hold information between calls
         self.ys = None
-    
+
     def __getattr__(self, attr):
         '''
         Gets missing attributes from wrapped pipeline.
         '''
         if attr in self.__dict__:
-            return self.__dict__[attr] 
+            return self.__dict__[attr]
         return getattr(self.prediction_pipeline, attr)
 
-    def __call__(self, image, model, sample_size=None, samples=None):
+    def __call__(
+        self, image, model, sample_size=None, samples=None, output_idxs=...
+    ):
         '''
         Args:
             image (array): the [H,W,C] image to explain via attribution
             model (callable): The prediction model returning [M,O] for output O
             sample_size (int): The nr N of samples to use to perturb
             samples (array): [N,M] alternative to sampler (replaces sample_size)
-        Returns: 
-            any: List of explainer outputs for each model output O
-            array, optional: List of [H,W] maps of attribution per pixel
+        Returns:
+            [[any]]: Lists for each explainer with explanations for all outputs
+            [[array]], optional: List of lists of [H,W] attribution per pixel
         '''
         self.ys, perturbed_samples = self.prediction_pipeline(
-            image, model, sample_size, samples
+            image, model, sample_size, samples, output_idxs
         )
-        ret = [self.explainer(y, perturbed_samples) for y in self.ys.T]
+        ret = [
+            [explainer(y, perturbed_samples) for y in self.ys.T]
+            for explainer in self.explainers
+        ]
         if self.per_pixel:
-            pixel_map = [perturbation_masks(
+            pixel_map = [[perturbation_masks(
                     self.prediction_pipeline.transformed_masks,
                     values[-2].reshape((1,-1))
-                ) for values in ret]
+                ) for values in explanations] for explanations in ret]
             return ret, pixel_map
         return ret
