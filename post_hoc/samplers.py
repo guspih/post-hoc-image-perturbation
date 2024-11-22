@@ -356,7 +356,6 @@ class MultiplyWrapperSampler():
         if self.keep_size:
             sample_size = int(sample_size/self.scalar)
         samples = self.sampler(M, sample_size)
-        print(samples.shape)
         none_idxs = []
         if not self.multiply_none:
             none_idxs = np.argwhere(np.all(samples==1, axis=-1))
@@ -366,10 +365,8 @@ class MultiplyWrapperSampler():
         add_scalars = np.zeros(len(samples))
         add_scalars[:int(self.scalar-int(self.scalar)*len(samples))] = 1
         scalars = scalars + add_scalars
-        print(samples.shape)
         samples = np.repeat(samples, scalars.astype(int), axis=0)
         if len(none_idxs) != 0:
-            print(samples.shape)
             none = np.ones((len(none_idxs), samples.shape[1]))
             samples = np.concatenate((samples, none), axis=0)
         return samples
