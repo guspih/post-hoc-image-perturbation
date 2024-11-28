@@ -129,7 +129,7 @@ class RISEPipeline():
 
 def LIMEPipeline(
     segmenter=None, sampler=None, perturber=None, explainers=None,
-    per_pixel=False, batch_size=None
+    explanans=['basic'], prune=False, batch_size=None
 ):
     '''
     An implementation of LIME for images based on the default implementation in
@@ -141,7 +141,8 @@ def LIMEPipeline(
         sampler (callable): Returns [N,S] N samples of segments to perturb
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
         explainers ([callable]): Attributes features from samples and outputs
-        per_pixel (bool): Whether to also return attribution maps per pixel
+        explanans ([str]): What to return ("basic", "segment_map", "pixel_map")
+        prune (bool): If True, catch explainer errors and remove the explainer
         batch_size (int): How many perturbed images to feed the model at once
     '''
     if segmenter is None:
@@ -164,12 +165,13 @@ def LIMEPipeline(
             return np.sqrt(np.exp(-(d ** 2) / 0.25 ** 2))
         explainers = [ScikitLIMEAttributer(regressor=regressor, kernel=kernel)]
     return SegmentationAttribuitionPipeline(
-        segmenter, sampler, perturber, explainers, per_pixel, batch_size=None
+        segmenter, sampler, perturber, explainers, explanans=explanans,
+        prune=prune, batch_size=batch_size
     )
 
 def CIUPipeline(
     segmenter=None, sampler=None, perturber=None, explainers=None,
-    strategy='straight', per_pixel=False, batch_size=None
+    strategy='straight', explanans=['basic'], prune=False, batch_size=None
 ):
     '''
     An implementation of CIU for images based on the default implementation in
@@ -184,7 +186,8 @@ def CIUPipeline(
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
         explainers ([callable]): Attributes features from samples and outputs
         strategy (str): Calculate effect by removing the feature or all others
-        per_pixel (bool): Whether to also return attribution maps per pixel
+        explanans ([str]): What to return ("basic", "segment_map", "pixel_map")
+        prune (bool): If True, catch explainer errors and remove the explainer
         batch_size (int): How many perturbed images to feed the model at once
     '''
     inverse = strategy=='inverse'
@@ -200,12 +203,13 @@ def CIUPipeline(
     if explainers is None:
         explainers = [OriginalCIUAttributer()]
     return SegmentationAttribuitionPipeline(
-        segmenter, sampler, perturber, explainers, per_pixel, batch_size=None
+        segmenter, sampler, perturber, explainers, explanans=explanans,
+        prune=prune, batch_size=batch_size
     )
 
 def PDAPipeline(
     segmenter=None, sampler=None, perturber=None, explainers=None,
-    mode='evidence', per_pixel=False, batch_size=None
+    mode='evidence', explanans=['basic'], prune=False, batch_size=None
 ):
     '''
     An implementation of PDA for images based on the implementation details from
@@ -238,7 +242,8 @@ def PDAPipeline(
     if explainers is None:
         explainers = [PDAAttributer(mode=mode)]
     return SegmentationAttribuitionPipeline(
-        segmenter, sampler, perturber, explainers, per_pixel, batch_size=None
+        segmenter, sampler, perturber, explainers, explanans=explanans,
+        prune=prune, batch_size=None
     )
 
 
