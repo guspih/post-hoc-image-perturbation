@@ -23,10 +23,17 @@ class ImageAUCEvaluator():
         return_visuals=False
     ):
         self.mif = []
+        self.header = []
         if mode != 'mif':
             self.mif.append(False)
+            self.header.append('lif')
         if mode != 'lif':
             self.mif.append(True)
+            self.header.append('mif')
+        if mode == 'srg':
+            self.header.append('srg')
+        if normalize:
+            self.header = self.header + ['norm_'+a for a in self.header]
         self.mode = mode
         self.perturber = perturber
         self.return_curves = return_curves
@@ -38,6 +45,15 @@ class ImageAUCEvaluator():
         # Variables to hold information between calls
         self.scores = None
         self.curves = None
+
+    def __str__(self):
+        content = (
+            f'{self.mode},{self.perturber},{self.return_curves},'
+            f'{self.normalize},{self.return_visuals}'
+        )
+        return f'ImageAUCEvaluator({content})'
+
+    def title(self): return f'auc_{self.mode}'
 
     def __call__(
         self, image, model, vals, masks=None, sample_size=None, model_idxs=...
@@ -74,12 +90,14 @@ class ImageAUCEvaluator():
                 ys = np.expand_dims(ys, axis=-1)
             self.curves.append(ys)
             self.scores.append(np.mean(ys, axis=0))
-        if self.normalize:
-            scores, curves = self.get_normalized()
-        else:
-            scores, curves = self.scores, self.curves
+        scores, curves = self.scores, self.curves
         if self.mode == 'srg':
             scores.append(scores[0]-scores[1])
+        if self.normalize:
+            norm_scores, norm_curves = self.get_normalized()
+            scores = scores + norm_scores
+            curves = curves + norm_curves
+
         ret = [scores]
         if self.return_curves:
             ret.append(curves)
