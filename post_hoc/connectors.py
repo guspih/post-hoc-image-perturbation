@@ -76,25 +76,33 @@ class SegmentationAttribuitionPipeline():
     '''
     Creates an image attribution pipeline that automatically performs and
     connects segmentation, sampling, perturbing, model prediction, and
-    attribution.
+    attribution. Returns a list that for each explainer contains a list for each
+    output with each explanation type indicated by the explanan parameter.
+    The 'basic' explanan returns the exact output of the explainer,
+    'segment_map' returns a [H,W] attribution map where each pixel is attributed
+    the value of its segment, and 'pixel_map' returns an [H,W] attribution map
+    where each pixel is attributed the weighted average value of all segments
+    where the weights are how much that pixel is involved in each segment.
 
     Args:
         segmenter (callable): Returns [H,W], [S,H,W] segments and S masks
         sampler (callable): Returns [N,S] N samples of segments to perturb
         perturber (callable): Returns [M,H,W,C], [M,S] perturbed images, samples
         explainers ([callable]): Attributes features from samples and outputs
-        per_pixel (bool): Whether to also return attribution maps per pixel
+        explanans ([str]): What to return ("basic", "segment_map", "pixel_map")
+        prune (bool): If True, catch explainer errors and remove the explainer
         batch_size (int): How many perturbed images to feed the model at once
     '''
     def __init__(
-        self, segmenter, sampler, perturber, explainers, per_pixel=False,
-        batch_size=None
+        self, segmenter, sampler, perturber, explainers, explanans=['basic'],
+        prune=False, batch_size=None
     ):
         self.segmenter = segmenter
         self.sampler = sampler
         self.perturber = perturber
         self.explainers = explainers
-        self.per_pixel = per_pixel
+        self.explanans = explanans
+        self.prune = prune
         self.batch_size = batch_size
 
         # Reuse SegmentationPerturbationPipeline
@@ -104,6 +112,7 @@ class SegmentationAttribuitionPipeline():
 
         # Variables to hold information between calls
         self.ys = None
+        self.errors = [] # List of all caught explainer errors (if prune=True)
 
     def __getattr__(self, attr):
         '''
@@ -122,21 +131,47 @@ class SegmentationAttribuitionPipeline():
             model (callable): The prediction model returning [M,O] for output O
             sample_size (int): The nr N of samples to use to perturb
             samples (array): [N,M] alternative to sampler (replaces sample_size)
+            output_idxs (indices): Indexes of the outputs to return
         Returns:
-            [[any]]: Lists for each explainer with explanations for all outputs
-            [[array]], optional: List of lists of [H,W] attribution per pixel
+            [[[any]]]: Explanations per explanan, per explainer, per output
         '''
         self.ys, perturbed_samples = self.prediction_pipeline(
             image, model, sample_size, samples, output_idxs
         )
-        ret = [
-            [explainer(y, perturbed_samples) for y in self.ys.T]
-            for explainer in self.explainers
-        ]
-        if self.per_pixel:
-            pixel_map = [[perturbation_masks(
+        ret = {}
+        if self.prune:
+            ret['basic'] = []
+            to_remove = []
+            for i, explainer in enumerate(self.explainers):
+                try: 
+                    exps = [explainer(y, perturbed_samples) for y in self.ys.T]
+                    ret['basic'].append(exps)
+                except Exception as e:
+                    self.errors.append(str(explainer)+': '+str(e))
+                    to_remove.append(i)
+            removed = 0
+            for i in to_remove:
+                del self.explainers[i-removed]
+                removed += 1
+            if len(self.explainers) == 0:
+                errors = '\n'.join(self.errors)
+                raise RuntimeError(
+                    f'All explainers have been pruned raising the following'
+                    f'Exceptions\n:{errors}'
+                )
+        else:
+            ret['basic'] = [
+                [explainer(y, perturbed_samples) for y in self.ys.T]
+                for explainer in self.explainers
+            ]
+        if 'segment_map' in self.explanans:
+            ret['segment_map'] = [[perturbation_masks(
+                    self.prediction_pipeline.masks,
+                    values[-2].reshape((1,-1))
+                ) for values in explanations] for explanations in ret['basic']]
+        if 'pixel_map' in self.explanans:
+            ret['pixel_map'] = [[perturbation_masks(
                     self.prediction_pipeline.transformed_masks,
                     values[-2].reshape((1,-1))
-                ) for values in explanations] for explanations in ret]
-            return ret, pixel_map
-        return ret
+                ) for values in explanations] for explanations in ret['basic']]
+        return [ret[explanan] for explanan in self.explanans]
