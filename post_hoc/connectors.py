@@ -156,8 +156,8 @@ class SegmentationAttribuitionPipeline():
             if len(self.explainers) == 0:
                 errors = '\n'.join(self.errors)
                 raise RuntimeError(
-                    f'All explainers have been pruned raising the following'
-                    f'Exceptions\n:{errors}'
+                    f'All explainers have been pruned raising the following '
+                    f'Exceptions:\n{errors}'
                 )
         else:
             ret['basic'] = [
