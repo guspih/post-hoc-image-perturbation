@@ -302,7 +302,7 @@ def main():
         help='Apply softmax to model output to normalize it'
     )
     parser.add_argument(
-        '--segmenters', type=str, nargs='+', default='grid',
+        '--segmenters', type=str, nargs='+', default=['grid'],
         choices=['grid', 'slic'], help='Which segmentation methods to use'
     )
     parser.add_argument(
@@ -321,7 +321,7 @@ def main():
         help='Use Gaussian filter to blur the perturbation masks'
     )
     parser.add_argument(
-        '--perturbers', type=str, nargs='+', default='black',
+        '--perturbers', type=str, nargs='+', default=['black'],
         choices=[
             'black', 'gray', 'norm_zero', 'mean', 'histogram', 'blur', 'cv2'
         ],
@@ -624,7 +624,7 @@ def main():
         if not (blur or segmenter_kw.get('bilinear', False)):
             attribution_types = ['segments']
 
-        # Create log file if it does not already existb
+        # Create log file if it does not already exist
         log_info = {
             'auc': {
                 'file_name':'imagenet_auc_results.csv',
@@ -678,6 +678,278 @@ def cancast(val):
         if val.lower() == 'true': return True
         if val.lower() == 'false': return False
     return val
+
+
+class Logger():
+    '''
+    '''
+    def __init__(self, file_name, key_header, value_header):
+        self.file_path = log_dir / file_name
+        self.key_header = key_header
+        self.value_header = value_header
+        if not self.file_path.is_file():
+            with open(self.file_path, 'w', newline='') as file:
+                writer = csv.writer(file, delimiter='\t', quotechar='|')
+                writer.writerow(self.key_header+self.value_header)
+
+    def exists(self, keys):
+        in_file = np.full(len(keys), False)
+        with open(self.file_path, newline='') as file:
+            reader = csv.reader(file, delimiter='\t', quotechar='|')
+            for i, key in enumerate(keys):
+                key = [str(entry) for entry in key]
+                for row in reader:
+                    if key == row[:len(self.key_header)]:
+                        in_file[i] = True
+                        break
+        return in_file
+
+    def write(self, keys, results):
+        with open(self.file_path, 'a', newline='') as file:
+            writer = csv.writer(results, delimiter='\t', quotechar='|')
+            for key, result in zip(keys, results):
+                row = [str(a) for a in key] + [str(a) for a in result]
+                writer.writerow(key+result)
+
+
+
+def run_evaluation(
+    pipeline, dataset, dataset_name, model, evaluators, sample_size=None,
+    attribution_types=['segments', 'pixels'], explain='top_class', fraction=1,
+    image_idx=0, label_idx=None, per_input=False, version=0, num_workers=10,
+    compile=False, verbose=False
+):
+    '''
+    Initializes an evaluation of an image attribution pipeline with the given 
+    parameters using the given evaluators for a given dataset and model.
+    Excludes any parameter combination for which results already exists.
+    Records the paramters and results using the given logger in files per each
+    dataset and evaluator.
+
+    Args:
+            EXPLANATION
+        pipeline (callable): Return [N,O], [N,S] predictions and samples
+        sample_size (int): The nr N of samples to use to perturb
+        attribution_types [str]: List of 'segment' and/or 'pixel' attribution
+        explain (str): What output to explain ("top_class", "label", or "all")
+
+            TASK
+        dataset (iterable): Iterable with [1,H,W,C] input images for the model
+        dataset_name ()
+        model (callable): Return [J,O] predictions for image [J,H,W,C]
+        fraction (int): Fraction of the data to use for evaluation
+        image_idx (int): Index of images in the entries of the dataset
+        label_idx (int: Index of the image label (None if no labels) 
+
+            EVALUATION
+        evaluators [callable]:
+        per_input (bool): If True, logs evaluation per input instead of aggregate
+
+            ADDITIONAL
+        version (int): Version used to separate runs with the same parameters
+        num_workers (int): Nr of worker processes used to load data
+        compile (bool): Whether to use torch.compile to improve computation
+        verbose (bool): Whether to print the evaluation progress
+    '''
+    # Check for incompatible arguments
+    if explain == 'label' and label_idx is None:
+        raise ValueError('explain cannot be "label" when label_idx is None')
+
+    # Create general headers for logging
+    parameter_header = [
+        'segmenter', 'sampler', 'perturber', 'sample_size', 'explained',
+        'model', 'fraction', 'version', 'explainer', 'attribution_type',
+        'evaluator'
+    ]
+    general_result_header = ['timestamp', 'nr_model_calls']
+    if not label_idx is None:
+        general_result_header.append('model_accuracy')
+
+    # Create loggers for each evaluator
+    loggers = []
+    for evaluator in evaluators:
+        log_file = f'{dataset_name}_{evaluator.title()}.csv'
+        result_header = evaluator.header
+        if per_input:
+            log_file = log_file + '_per_input'
+            result_header = ','.join(result_header)+' ...'
+        else:
+            result_header = result_header + ['var_'+a for a in result_header]
+        result_header = general_result_header + result_header
+        loggers.append(Logger(log_file, parameter_header, result_header))
+
+    # Create IDs for each part of the evaluation process
+    general_id = [str(a) for a in [
+        pipeline.segmenter, pipeline.sampler, pipeline.perturber, sample_size,
+        explain, model, fraction, version
+    ]]
+    explainer_ids = [[str(explainer)] for explainer in pipeline.explainers]
+    attribution_ids = [[attribution] for attribution in attribution_types]
+    evaluator_ids = [[str(evaluator)] for evaluator in evaluators]
+
+    # Create holders for each experiment
+    experiments = []
+    for explainer in pipeline.explainers:
+        experiments.append((explainer, [
+            (attribution, [
+                (eva, log, []) for eva, log in zip(evaluators, loggers)])
+            for attribution in attribution_types
+        ]))
+
+    # Prune already run experiments
+    for i, (explainer, rest) in experiments:
+        for j, (attribution, evaluations) in rest:
+            for k, (evaluator, logger, results) in enumerate(evaluations):
+                key = general_id + [
+                    str(a) for a in [explainer, attribution, evaluator]
+                ]
+                if logger.exists([key])[0]:
+                    evaluations[k] = None
+            rest[j] = (attribution, [a for a in evaluations if a != None])
+        experiments[i] = (explainer, [a for a in rest if len(a[1])>0])
+    experiments = [a for a in experiments if len(a[1])>0]
+    pipeline.explainers = [explainer for (explainer, rest) in experiments]
+    if len(experiments) == 0:
+        return
+
+    # Set the seeds for consistent experiments
+    np.random.seed(version)
+    random.seed(version)
+
+    # If compile is set, use torch.compile to attempt to speed up experiment
+    if compile:
+        model.__call__ = torch.compile(model.__call__)
+        pipeline.__call__ = torch.compile(
+            pipeline.__call__
+        )
+        for evaluator in evaluators:
+            evaluator.__call__ = torch.compile(evaluator.__call__)
+        maskify = torch.compile(perturbation_masks) 
+    else:
+        maskify = perturbation_masks
+
+    # Cut dataset into the given fraction and prepare a loader
+    dataset_fraction = Subset(
+        dataset, [int(x) for x in np.linspace(
+            0, len(dataset), int(len(dataset)*fraction), endpoint=False
+        )]
+    )
+    batch_size = 1
+    data_loader = DataLoader(
+        dataset_fraction, batch_size=batch_size, shuffle=False,
+        num_workers=num_workers
+    )
+
+    # Iterate over all images, perturb them, expain them, and calculate AUC
+    total_num = 0
+    correct = 0
+    nr_model_calls = 0
+    for i, data in enumerate(data_loader):
+
+        # If verbose, print info
+        if verbose:
+            print(
+                f'\rEvaluating on {fraction*100}% of {dataset_name} '
+                f'[{i+1}/{len(dataset_fraction)}] '
+                f'{datetime.now().strftime("%y-%m-%d_%Hh%M")}', end=''
+            )
+
+        # Extract the image, label (if applicable) and make a prediction
+        image = data[image_idx].permute((0,2,3,1)).numpy(force=True)
+        label = None if label_idx is None else data[label]
+        predicted = np.argmax(model(image), axis=1)
+
+        # If there is a label, check if it is correctly predicted
+        if not label_idx is None and label == predicted[0]:
+            correct += 1
+
+        # If explaining top_class, set that as the label
+        if explain == 'top_class':
+            label = predicted[0]
+
+        # Get the attribution maps
+        segment_maps, pixel_maps = pipeline(
+            image, model, sample_size=sample_size, output_idxs=label
+        )
+
+        # Exclude experiments that raises errors (if pipeline.prune=True)
+        if len(experiments) != len(pipeline.explainers):
+            for j, (explainer, rest) in enumerate(experiments):
+                if not explainer in pipeline.explainers:
+                    experiments[j] = None
+            experiments = [a for a in experiments if a != None]
+            if len(experiments == 0):
+                return
+
+        # Get the number of times the model was called
+        nr_model_calls += pipeline.nr_model_calls
+
+        # Evaluate each attribution map using each applicable evaluator
+        for segment_map, pixel_map, (explainer, rest) in zip(
+            segment_maps, pixel_maps, experiments
+        ):
+            for attribution, evaluations in rest:
+                if attribution == 'segments':
+                    map = segment_map[0]
+                elif attribution == 'pixels':
+                    map = pixel_map[0]
+                for evaluator, logger, results in evaluations:
+                    score = evaluator("TODO: all the things")
+                    if per_input:
+                        # Store every individual score
+                        results.append(score)
+                    else:
+                        # Store the sum of and sum of squares of each score
+                        results[:len(score)] = [
+                            r+s for r,s in zip(results[:len(score)], score)
+                        ]
+                        results[len(score):] = [
+                            r+s**2 for r,s in zip(results[len(score):], score)
+                        ]
+
+    # Prepare general results (timestamp, nr_model_calls, and maybe accuracy)
+    general_results = []
+    general_results.append(datetime.now().strftime('%y-%m-%d_%Hh%M'))
+    general_results.append(nr_model_calls)
+    if not label_idx is None:
+        general_results.append(correct/total_num)
+
+    # Postprocess results and log them to file
+    for explainer, rest in experiments:
+        for attribution, evaluations in rest:
+            for evaluator, logger, results in evaluations:
+                if per_input:
+                    # Make a strings of all individual results
+                    results = [','.join(result) for result in results]
+                else:
+                    # Get the variance of results
+                    results[int(len(results)/2):] = [
+                        (s2-(s*s)/total_num)/(total_num-1) for s, s2 in zip(
+                            results[:int(len(results)/2)],
+                            results[int(len(results)/2):]
+                        )
+                    ]
+                    # Get mean of results
+                    results[:int(len(results)/2)] = [
+                        r/total_num for r in results[:int(len(results)/2)]
+                    ]
+                key = general_id + [
+                    str(a) for a in [explainer, attribution, evaluator]
+                ]
+                logger.write(key, general_results+results)
+
+    if verbose:
+        print()
+    return
+
+
+
+
+
+
+
+
+
 
 
 # When this file is executed independently, execute the main function
