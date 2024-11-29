@@ -14,13 +14,14 @@ class ImageAUCEvaluator():
     Args:
         mode (str): Which score to calculate. 'mif'/'lif' are included in 'srg'
         perturber (callable): Perturber used to remove the segments
-        return_curves (bool): Whether to also return the model outputs
+        sample_size (int): How many perturbed images to generate
         normalize (bool): Whether to normalize so the curve(s) goes from 1 to 0
+        return_curves (bool): Whether to also return the model outputs
         return_visuals (bool): Whether to also return the deletion images
     '''
     def __init__(
-        self, mode='srg', perturber=None, return_curves=False, normalize=False,
-        return_visuals=False
+        self, mode='srg', perturber=None, sample_size=10, normalize=False,
+        return_curves=False, return_visuals=False
     ):
         self.mif = []
         self.header = []
@@ -36,8 +37,9 @@ class ImageAUCEvaluator():
             self.header = self.header + ['norm_'+a for a in self.header]
         self.mode = mode
         self.perturber = perturber
-        self.return_curves = return_curves
+        self.sample_size = sample_size
         self.normalize = normalize
+        self.return_curves = return_curves
         self.return_visuals = return_visuals
         if perturber is None:
             self.perturber = SingleColorPerturber((0.5,0.5,0.5))
@@ -48,15 +50,15 @@ class ImageAUCEvaluator():
 
     def __str__(self):
         content = (
-            f'{self.mode},{self.perturber},{self.return_curves},'
-            f'{self.normalize},{self.return_visuals}'
+            f'{self.mode},{self.perturber},{self.sample_size},{self.normalize}'
         )
         return f'ImageAUCEvaluator({content})'
 
     def title(self): return f'auc_{self.mode}'
 
     def __call__(
-        self, image, model, vals, masks=None, sample_size=None, model_idxs=...
+        self, image, model, vals, masks=None, sample_size=None, model_idxs=...,
+        **kwargs
     ):
         '''
         Args:
@@ -64,8 +66,9 @@ class ImageAUCEvaluator():
             model (callable): Model used to predict from batches of images
             vals (array): Array of attribution scores for each feature
             masks (array): [S,H,W] array of segment masks (None=vals per pixel)
-            sample_size (int): How many perturbed images to generate
+            sample_size (int): Nr of deletion steps (overrides self.sample_size)
             model_idxs (index): Index for the model outputs to use
+            **kwargs (dict): Used to catch arguments that are not used
         Returns:
             [array]: List of [O] AUC arrays for O model outputs for each score
             [array], optional: List of [sample_size, O] model output arrays
@@ -76,6 +79,8 @@ class ImageAUCEvaluator():
         self.scores = []
         self.curves = []
         for mif in self.mif:
+            if sample_size == None:
+                sample_size = self.sample_size
             samples = auc_sampler(vals, sample_size, mif)
             if not masks is None:
                 distortion_masks = perturbation_masks(masks, samples)
