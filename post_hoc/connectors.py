@@ -69,7 +69,7 @@ class SegmentationPredictionPipeline():
         perturbed_samples = np.concatenate(perturbed_samples)
         self.nr_model_calls = len(ys)
         if len(ys.shape)==1:
-            ys = np.expand_dims(self.ys, axis=-1)
+            ys = np.expand_dims(ys, axis=-1)
         return ys, perturbed_samples
 
 class SegmentationAttribuitionPipeline():
