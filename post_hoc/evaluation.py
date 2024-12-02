@@ -54,7 +54,8 @@ class ImageAUCEvaluator():
         )
         return f'ImageAUCEvaluator({content})'
 
-    def title(self): return f'auc_{self.mode}'
+    def title(self):
+        return f'auc_{self.mode}' + ('_norm' if self.normalize else '')
 
     def __call__(
         self, image, model, vals, masks=None, sample_size=None, model_idxs=...,
@@ -91,8 +92,8 @@ class ImageAUCEvaluator():
             )
             visuals.append(perturbed_images)
             ys = model(perturbed_images)[model_idxs]
-            if len(ys.shape) == 1:
-                ys = np.expand_dims(ys, axis=-1)
+            #if len(ys.shape) == 1:
+            #    ys = np.expand_dims(ys, axis=-1)
             self.curves.append(ys)
             self.scores.append(np.mean(ys, axis=0))
         scores, curves = self.scores, self.curves
