@@ -751,9 +751,22 @@ def run_evaluation(
         compile (bool): Whether to use torch.compile to improve computation
         verbose (bool): Whether to print the evaluation progress
     '''
+    # Start timer to check speed of evaluation
+    if verbose:
+        start = datetime.now()
+
     # Check for incompatible arguments
     if explain == 'label' and label_idx is None:
         raise ValueError('explain cannot be "label" when label_idx is None')
+
+    # If compile is set, use torch.compile to attempt to speed up experiment
+    if compile:
+        model.__call__ = torch.compile(model.__call__)
+        pipeline.__call__ = torch.compile(
+            pipeline.__call__
+        )
+        for evaluator in evaluators:
+            evaluator.__call__ = torch.compile(evaluator.__call__)
 
     # Create general headers for logging
     parameter_header = [
@@ -761,20 +774,20 @@ def run_evaluation(
         'model', 'fraction', 'version', 'explainer', 'attribution_type',
         'evaluator'
     ]
-    general_result_header = ['timestamp', 'nr_model_calls']
-    if not label_idx is None:
-        general_result_header.append('model_accuracy')
+    general_result_header = ['timestamp', 'nr_model_calls', 'model_accuracy']
 
     # Create loggers for each evaluator
     loggers = []
     for evaluator in evaluators:
-        log_file = f'{dataset_name}_{evaluator.title()}.csv'
+        log_file = f'{dataset_name}_{evaluator.title()}'
         result_header = evaluator.header
         if per_input:
             log_file = log_file + '_per_input'
-            result_header = ','.join(result_header)+' ...'
+            result_header = [','.join(result_header)+' ...']
         else:
             result_header = result_header + ['var_'+a for a in result_header]
+
+        log_file = log_file + '.csv'
         result_header = general_result_header + result_header
         loggers.append(Logger(log_file, parameter_header, result_header))
 
@@ -813,15 +826,6 @@ def run_evaluation(
     np.random.seed(version)
     random.seed(version)
 
-    # If compile is set, use torch.compile to attempt to speed up experiment
-    if compile:
-        model.__call__ = torch.compile(model.__call__)
-        pipeline.__call__ = torch.compile(
-            pipeline.__call__
-        )
-        for evaluator in evaluators:
-            evaluator.__call__ = torch.compile(evaluator.__call__)
-
     # Cut dataset into the given fraction and prepare a loader
     dataset_fraction = Subset(
         dataset, [int(x) for x in np.linspace(
@@ -849,7 +853,7 @@ def run_evaluation(
 
         # Extract the image, label (if applicable) and make a prediction
         image = data[image_idx].permute((0,2,3,1)).numpy(force=True)[0]
-        label = None if label_idx is None else data[label]
+        label = None if label_idx is None else data[label_idx]
         predicted = np.argmax(model(image), axis=1)
 
         # If there is a label, check if it is correctly predicted
@@ -912,7 +916,9 @@ def run_evaluation(
     general_results = []
     general_results.append(datetime.now().strftime('%y-%m-%d_%Hh%M'))
     general_results.append(nr_model_calls)
-    if not label_idx is None:
+    if label_idx is None:
+        general_results.append('N/A')
+    else:
         general_results.append(correct/total_num)
 
     # Postprocess results and log them to file
@@ -922,9 +928,10 @@ def run_evaluation(
             for evaluator, logger, results in evaluations:
                 if per_input:
                     # Make a strings of all individual results
-                    results = [','.join(result) for result in results]
+                    results = [
+                        ','.join([str(r) for r in res]) for res in results
+                    ]
                 else:
-                    print(results)
                     # Get the variance of results
                     results[int(len(results)/2):] = [
                         (s2-(s*s)/total_num)/(total_num-1) for s, s2 in zip(
@@ -942,7 +949,11 @@ def run_evaluation(
                 logger.write([key], [general_results+results])
 
     if verbose:
-        print()
+        eval_time = (datetime.now()-start).total_seconds()
+        print(
+            f'\rEvaluation on {fraction*100}% of {dataset_name} took '
+            f'{eval_time} seconds.'
+        )
     return
 
 
@@ -1006,12 +1017,12 @@ if __name__ == "__main__":
 
     # Create evaluator
     evaluators = [ImageAUCEvaluator(
-        mode='srg', perturber=SingleColorPerturber(color='mean')
+        mode='srg', perturber=SingleColorPerturber(color='mean'), normalize=True
     )]
 
     run_evaluation(
         pipeline, dataset, dataset_name, model, evaluators, sample_size=None,
         attribution_types=['segments', 'pixels'], explain='top_class', fraction=0.0005,
-        image_idx=0, label_idx=None, per_input=False, version=0, num_workers=10,
-        compile=False, verbose=True
+        image_idx=0, label_idx=1, per_input=False, version=0, num_workers=10,
+        compile=True, verbose=True
     )
