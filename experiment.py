@@ -47,240 +47,6 @@ from workspace_path import home_path
 log_dir = home_path / 'logs'
 log_dir.mkdir(parents=True, exist_ok=True)
 
-# Headers of result files as divided into parameters and results
-general_parameters = [
-    'segmenter', 'sampler', 'perturber', 'model', 'explainer', 'sample_size',
-    'attribution_type', 'fraction', 'version'
-]
-auc_parameters = ['auc_perturber', 'auc_sample_size', 'use_true_class',]
-auc_results = [
-    'timestamp', 'nr_model_calls', 'model_accuracy', 'lif', 'mif', 'srg',
-    'norm_lif', 'norm_mif', 'norm_srg', 'var_lif', 'var_mif', 'var_srg',
-    'var_norm_lif', 'var_norm_mif', 'var_norm_srg'
-]
-
-
-def run_auc_experiment(
-    segmenter, sampler, perturber, model, explainers, sample_size=None,
-    attribution_types=['segments', 'pixels'], auc_perturber=None,
-    auc_sample_size=10, use_true_class=False, fraction=1, version=0,
-    num_workers=10, compile=False, verbose=False
-):
-    '''
-    Initializes an occlusion Area Under the Curve evaluation of an image
-    attribution pipeline with the given parameters. Excludes any parameter
-    combination for which results already exists. Evaluates the LIF, MIF,
-    and SRG metrics of remaining combinations on the ImageNet validation set.
-    Records the paramters and results in 'imagenet_auc_results.csv'
-    Args:
-        segmenter (callable): Return [H,W], [S,H,W] segments and S masks
-        sampler (callable): Return [N,S] N samples of segments to perturb
-        perturber (callable): Return [M,H,W,C], [M,S] perturbed images, samples
-        model (callable): Return [X,1000] class prediction for image [X,H,W,C]
-        explainers [callable]: List of explainers that calculate attribution
-        sample_size (int): The nr N of samples to use to perturb
-        attribution_types [str]: List of 'segment' and/or 'pixel' attribution
-        auc_perturber (callable): Perturber used to calculate occlusion metrics
-        auc_sample_size (int): Nr of occlusion steps to use for metrics
-        use_true_class (bool): Explain the label instead of top predicted class
-        fraction (int): Fraction of the validation set to use for evaluation
-        version (int): Version used to separate runs with the same parameters
-        num_workers (int): Nr of worker processes used to load data
-        compile (bool): Whether to use torch.compile to improve computation
-        verbose (bool): Whether to print the evaluation progress
-    '''
-
-    # Create pipeline
-    prediction_pipeline = SegmentationPredictionPipeline(
-        segmenter, sampler, perturber, batch_size=128
-    )
-    # Combine explainers and attributions types (and copy explainers container)
-    tests = [(exp,att) for att in attribution_types for exp in explainers]
-
-    # Create evaluator
-    if auc_perturber is None:
-        SingleColorPerturber(color='mean')
-    auc_evaluator = ImageAUCEvaluator(
-        mode='srg', perturber=auc_perturber, return_curves=True
-    )
-
-    # Log file
-    log_file = log_dir / 'imagenet_auc_results.csv'
-
-    # Create experiment IDs
-    ids = []
-    for explainer, attribution_type in tests:
-        ids.append([str(y) for y  in [
-            segmenter, sampler, perturber, model, explainer, sample_size,
-            attribution_type, fraction, version, auc_perturber,
-            auc_sample_size, use_true_class
-        ]])
-
-    # Prune already run experiments
-    new_ids = []
-    new_tests = []
-    for id, test in zip(ids, tests):
-        ok = True
-        with open(log_file, newline='') as results:
-            results_reader = csv.reader(results, delimiter='\t', quotechar='|')
-            for row in results_reader:
-                if id == row[:len(general_parameters+auc_parameters)]:
-                    ok = False
-                    break
-            if ok:
-                new_ids.append(id)
-                new_tests.append(test)
-    if len(new_tests) == 0:
-        return
-    tests = new_tests
-    ids = new_ids
-
-    # Set the seeds for consistent experiments
-    np.random.seed(version)
-    random.seed(version)
-
-    # If compile is set, use torch.compile to attempt to speed up experiment
-    if compile:
-        model.__call__ = torch.compile(model.__call__)
-        prediction_pipeline.__call__ = torch.compile(
-            prediction_pipeline.__call__
-        )
-        auc_evaluator.__call__ = torch.compile(auc_evaluator.__call__)
-        maskify = torch.compile(perturbation_masks)
-        for explainer, attribution_type in tests:
-            explainer.__call__ = torch.compile(explainer.__call__)
-    else:
-        maskify = perturbation_masks
-
-    # Collect dataset and create a transform to get images in correct format
-    dataset_transform = v1.Compose([
-        v1.ToTensor(),
-        v1.Resize((224,224), antialias=True)
-    ])
-    imagenet = dataset_collector(
-        'IMAGENET1K2012', split='val', download=False,
-        transform=dataset_transform
-    )
-    imagenet_fraction = Subset(
-        imagenet, [int(x) for x in np.linspace(
-            0, 50000, int(50000*fraction), endpoint=False
-        )]
-    )
-    batch_size = 1
-    imagenet_loader = DataLoader(
-        imagenet_fraction, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers
-    )
-
-    # Iterate over all images, perturb them, expain them, and calculate AUC
-    total_num = 0
-    correct = 0
-    nr_model_calls = 0
-    for i, (image, target) in enumerate(imagenet_loader):
-        image = image.permute((0,2,3,1)).numpy(force=True)
-        predicted = np.argmax(model(image), axis=1)
-        for k, (image, target) in enumerate(zip(image, target)):
-            total_num += 1
-            step = i*batch_size+k
-
-            # Check if true and predicted class are the same for verification
-            if target == predicted[k]:
-                correct += 1
-
-            # If not using the true classes, get the top predicted classes
-            if not use_true_class:
-                target = predicted[k]
-
-            # Get the y values for each prediction
-            ys, samples = prediction_pipeline(
-                image, model, sample_size=sample_size
-            )
-
-            # Get the number of times the model was called
-            nr_model_calls += prediction_pipeline.nr_model_calls
-            # Exclude explainers that cannot handle the current pipeline
-            if step == 0:
-                new_tests = []
-                new_ids = []
-                ret = []
-                for id, (explainer, attribution_type) in zip(ids, tests):
-                    try:
-                        explainer(ys[:, target], samples)
-                        new_tests.append((explainer, attribution_type))
-                        new_ids.append(id)
-                        # Create a return value container the explainer
-                        ret.append([0 for _ in range(12)])
-                    except Exception as e:
-                        pass
-                # Stop experiment if there are no suitable explainers
-                if len(new_tests) == 0:
-                    return
-                tests = new_tests
-                ids = new_ids
-
-            # If verbose, print info
-            if verbose:
-                print(
-                    #f'\rEvaluating on ImageNet validation set '
-                    f'[{step+1}/{len(imagenet_fraction)}] '
-                    f'{datetime.now().strftime("%y-%m-%d_%Hh%M")}'#, end=''
-                )
-
-            # Iterate over explainers and calculate their AUC
-            for j, (explainer, attribution_type) in enumerate(tests):
-                # Get explanations and calculate the pixel-wise attribution
-                attribution = explainer(ys[:, target], samples)[-2]
-                attribution = np.round(attribution, 9) #Less rounding issues
-                if attribution_type == 'segments':
-                    masks = prediction_pipeline.masks
-                else:
-                    masks = prediction_pipeline.transformed_masks
-                pixel_map = maskify(
-                    masks, attribution.reshape((1,-1))
-                )
-
-                # Calculate the AUC scores
-                scores, curves = auc_evaluator(
-                    image, model, pixel_map, sample_size=auc_sample_size,
-                    model_idxs=(...,target)
-                )
-
-                # AUC mean and variance
-                for l in range(0,3):
-                    ret[j][l] += scores[l]
-                for l in range(0,3):
-                    ret[j][l+6] += scores[l]**2
-
-                # Normalized AUC mean and variance
-                scores, curves = auc_evaluator.get_normalized()
-                for l in range(0,3):
-                    ret[j][l+3] += scores[l]
-                for l in range(0,3):
-                    ret[j][l+9] += scores[l]**2
-
-    for j, (id, (explainer, attribution_type)) in enumerate(zip(ids, tests)):
-        # AUC mean
-        for k in range(0,6):
-            ret[j][k] = ret[j][k][0] / total_num
-        # AUC variance
-        for k in range(6,12):
-            ret[j][k] = np.sqrt((
-                    ret[j][k][0]*total_num - ret[j][k-3]**2
-                )/(total_num*(total_num-1))
-            )
-        # Timestamp
-        timestamp = datetime.now().strftime('%y-%m-%d_%Hh%M')
-        # Print experiment parameters and results to log file
-        with open(log_file, 'a', newline='') as results:
-            results_writer = csv.writer(results, delimiter='\t', quotechar='|')
-            results_writer.writerow(
-                id+[timestamp]+[nr_model_calls]+[correct/total_num]+ret[j]
-            )
-    if verbose:
-        print()
-    return
-
-
 def main():
     '''
     Collects parameters from when the file is run and evaluates all
@@ -289,8 +55,12 @@ def main():
     # Create parser and parse input
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--evaluation', type=str, default='auc', choices=['auc'],
-        help='The evaluation to perform (auc: LIF/MIF on ImageNet)'
+        '--evaluations', type=str, nargs='+', default=['auc'], choices=['auc'],
+        help='The evaluations to perform (auc: LIF,MIF,SRG)'
+    )
+    parser.add_argument(
+        '--dataset', type=str, default='imagenet', choices=['imagenet'],
+        help='The dataset to evaluate on (imagenet: ImageNet validation set)'
     )
     parser.add_argument(
         '--nets', type=str, nargs='+', default=['alexnet'],
@@ -350,6 +120,14 @@ def main():
         help='Use actual class instead of predicted class for auc evaluation'
     )
     parser.add_argument(
+        '--per_input', action='store_true',
+        help='Logs the results of each image instead of averaging over dataset'
+    )
+    parser.add_argument(
+        '--batch_size', type=int, default=1024, metavar='Nr',
+        help='Maximum number of inputs to feed through a model at once'
+    )
+    parser.add_argument(
         '--fraction', type=float, default=1, metavar='X',
         help='What fraction of the dataset to use in the evaluation'
     )
@@ -400,9 +178,9 @@ def main():
 
     if args.run_rise_plus:
         rise_plus_dict = {
-            'net':None, 'segmenter':'grid', 'n_seg':49, 'sampler':'random',
-            'perturber':'norm_zero', 'sample_size':None, 'softmax':True,
-            'blur':False,
+            'evaluators': ['auc'], 'net':None, 'segmenter':'grid', 'n_seg':49,
+            'sampler':'random', 'perturber':'norm_zero', 'sample_size':None,
+            'softmax':True, 'blur':False,
             'explainers':['rise', 'lime', 'shap', 'pda', 'ciu', 'inverse_ciu'],
             'attribution_types':['segments', 'pixels'], 'fraction':1,
             'segmenter_kw':{'bilinear':True}, 'sampler_kw':{},
@@ -505,28 +283,32 @@ def main():
             itertools.product(experiment_dicts, net_dicts)
         ]
         keys = [
-            'net', 'segmenter', 'n_seg', 'sampler', 'perturber', 'sample_size',
-            'softmax', 'blur', 'explainers', 'attribution_types', 'fraction',
-            'segmenter_kw', 'sampler_kw', 'perturber_kw', 'explainer_kw'
+            'evaluators', 'net', 'segmenter', 'n_seg', 'sampler', 'perturber',
+            'sample_size', 'softmax', 'blur', 'explainers', 'attribution_types',
+            'fraction', 'segmenter_kw', 'sampler_kw', 'perturber_kw',
+            'explainer_kw'
         ]
         runs = [[d[x] for x in keys] for d in runs]
     else:
         runs = itertools.product(
-            args.nets, args.segmenters, args.n_segments, args.samplers,
-            args.perturbers, args.sample_sizes, [args.softmax], [args.blur],
-            [args.explainers], [args.attribution_types], [args.fraction],
-            [segmenter_kw], [sampler_kw], [perturber_kw], [explainer_kw]
+            [args.evaluations], args.nets, args.segmenters, args.n_segments,
+            args.samplers, args.perturbers, args.sample_sizes, [args.softmax],
+            [args.blur], [args.explainers], [args.attribution_types],
+            [args.fraction], [segmenter_kw], [sampler_kw], [perturber_kw],
+            [explainer_kw]
         )
 
     # For each combination of net, segmenter, n_seg, perturber, and sample_size
     for (
-        net, segmenter, n_seg, sampler, perturber, sample_size, softmax, blur,
-        explainers, attribution_types, fraction, segmenter_kw, sampler_kw,
-        perturber_kw, explainer_kw
+        evaluations, net, segmenter, n_seg, sampler, perturber, sample_size,
+        softmax, blur, explainers, attribution_types, fraction, segmenter_kw,
+        sampler_kw, perturber_kw, explainer_kw
     ) in runs:
-        print(net, segmenter, n_seg, sampler, perturber, sample_size, softmax, blur,
-        explainers, attribution_types, fraction, segmenter_kw, sampler_kw,
-        perturber_kw, explainer_kw)
+        print(evaluations, net, segmenter, n_seg, sampler, perturber,
+            sample_size, softmax, blur, explainers, attribution_types, fraction,
+            segmenter_kw, sampler_kw, perturber_kw, explainer_kw
+        )
+
         # Get model and weights
         weights = 'IMAGENET1K_V2' if net == 'resnet50' else 'IMAGENET1K_V1'
         net = torchvision.models.__dict__[net](weights=weights)
@@ -546,6 +328,20 @@ def main():
         model = TorchModelWrapper(
             net, transforms, gpu=gpu, softmax_out=softmax
         )
+
+        # Prepare the dataset
+        if args.dataset == 'imagenet':
+            dataset_transform = v1.Compose([
+                v1.ToTensor(),
+                v1.Resize((224,224), antialias=True)
+            ])
+            dataset = dataset_collector(
+                'IMAGENET1K2012', split='val', download=False,
+                transform=dataset_transform
+            )
+            dataset_name = 'imagenet_val'
+            image_idx=0
+            label_idx=1
 
         # Create the segmenter
         hw = round(np.sqrt(n_seg))
@@ -624,45 +420,38 @@ def main():
         if not (blur or segmenter_kw.get('bilinear', False)):
             attribution_types = ['segments']
 
-        # Create log file if it does not already exist
-        log_info = {
-            'auc': {
-                'file_name':'imagenet_auc_results.csv',
-                'header':general_parameters+auc_parameters+auc_results
-            }
-        }
-        log_file = log_dir / log_info[args.evaluation]['file_name']
-        if not log_file.is_file():
-            with open(log_file, 'w', newline='') as results:
-                results_writer = csv.writer(
-                    results, delimiter='\t', quotechar='|'
-                )
-                results_writer.writerow(log_info[args.evaluation]['header'])
+        # Create the evaluators
+        evaluators = []
+        if 'auc' in evaluations:
+            evaluators.append(ImageAUCEvaluator(
+                mode='srg', perturber=SingleColorPerturber(color='mean'),
+                normalize=True
+            ))
 
-        if args.evaluation == 'auc':
-            experiment = run_auc_experiment
-            if args.compile:
-                os.environ['TORCHDYNAMO_VERBOSE'] = '1'
-                torch._dynamo.config.suppress_errors = True
-                experiment = torch.compile(run_auc_experiment)
-            for version in range(args.versions):
-                # Only need to run non-deterministic experiments once
-                if version>0 and sampler.deterministic and perturber.deterministic:
-                    continue
-                if not args.quiet:
-                    start = datetime.now()
-                experiment(
-                    segmenter, sampler, perturber, model, explainers,
-                    sample_size=sample_size,
-                    attribution_types=attribution_types, auc_perturber=None,
-                    auc_sample_size=args.auc_samples,
-                    use_true_class=args.use_true_class, fraction=fraction,
-                    version=version, num_workers=10, compile=args.compile,
-                    verbose=not args.quiet
-                )
-                if not args.quiet:
-                    eval_time = (datetime.now()-start).total_seconds()
-                    print(f'AUC Evaluation run in {eval_time} seconds')
+        pipeline = SegmentationAttribuitionPipeline(
+            segmenter, sampler, perturber, explainers,
+            explanans=['segment_map', 'pixel_map'], prune=True, 
+            batch_size=args.batch_size
+        )
+
+        experiment = run_evaluation
+        if args.compile:
+            os.environ['TORCHDYNAMO_VERBOSE'] = '1'
+            torch._dynamo.config.suppress_errors = True
+            experiment = torch.compile(run_evaluation)
+
+        for version in range(args.versions):
+            # Only need to run non-deterministic experiments once
+            if version>0 and sampler.deterministic and perturber.deterministic:
+                continue
+            experiment(
+                pipeline, dataset, dataset_name, model, evaluators,
+                sample_size=sample_size, attribution_types=attribution_types,
+                explain='label' if args.use_true_class else 'top_class',
+                fraction=fraction, image_idx=image_idx, label_idx=label_idx,
+                per_input=args.per_input, version=version, num_workers=10,
+                compile=args.compile, verbose=not args.quiet
+            )
 
 
 def cancast(val):
@@ -712,7 +501,6 @@ class Logger():
                 writer.writerow(row)
 
 
-
 def run_evaluation(
     pipeline, dataset, dataset_name, model, evaluators, sample_size=None,
     attribution_types=['segments', 'pixels'], explain='top_class', fraction=1,
@@ -727,25 +515,18 @@ def run_evaluation(
     dataset and evaluator.
 
     Args:
-            EXPLANATION
         pipeline (callable): Return [N,O], [N,S] predictions and samples
+        dataset (iterable): Iterable with [1,H,W,C] input images for the model
+        dataset_name (str): Name for the dataset used for logging results
+        model (callable): Return [J,O] predictions for image [J,H,W,C]
+        evaluators [callable]: Returns [1,1,H,W], [1,1,H,W] attribution maps
         sample_size (int): The nr N of samples to use to perturb
         attribution_types [str]: List of 'segment' and/or 'pixel' attribution
         explain (str): What output to explain ("top_class", "label", or "all")
-
-            TASK
-        dataset (iterable): Iterable with [1,H,W,C] input images for the model
-        dataset_name ()
-        model (callable): Return [J,O] predictions for image [J,H,W,C]
         fraction (int): Fraction of the data to use for evaluation
         image_idx (int): Index of images in the entries of the dataset
         label_idx (int: Index of the image label (None if no labels)
-
-            EVALUATION
-        evaluators [callable]:
         per_input (bool): If True, logs evaluation per input instead of aggregate
-
-            ADDITIONAL
         version (int): Version used to separate runs with the same parameters
         num_workers (int): Nr of worker processes used to load data
         compile (bool): Whether to use torch.compile to improve computation
@@ -896,7 +677,7 @@ def run_evaluation(
                     score = evaluator(
                         image=image, model=model, vals=map, label=label,
                         model_idxs=(...,target)
-                )
+                    )
                     if per_input:
                         # Store every individual score
                         results.append(score)
@@ -957,72 +738,6 @@ def run_evaluation(
     return
 
 
-
-
-
-
-
-
-
-
-
 # When this file is executed independently, execute the main function
 if __name__ == "__main__":
-    #main()
-
-
-    net = torchvision.models.__dict__['alexnet'](weights='IMAGENET1K_V1')
-    net.eval()
-
-    # Create a transform to prepare images for Torchvision
-    transforms = v1.Compose([
-        ImageToTorch(),
-        v1.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        ),
-        v1.Resize((224,224), antialias=True)
-    ])
-
-    # Wrap model and check if it can run on the GPU
-    gpu = torch.cuda.is_available()
-    model = TorchModelWrapper(
-        net, transforms, gpu=gpu, softmax_out=True
-    )
-
-    # Create the segmenter
-    segmenter = FadeMaskSegmenter(
-        WrapperSegmenter(slic, n_segments=49, start_label=0), sigma=10
-    )
-    sampler = RandomSampler()
-    perturber = SingleColorPerturber((0.485, 0.456, 0.406))
-
-    # Create the explainers
-    explainers = [RISEAttributer(), OriginalCIUAttributer(), LinearLIMEAttributer()]
-
-    pipeline = SegmentationAttribuitionPipeline(
-        segmenter,sampler,perturber,explainers,
-        explanans=['segment_map', 'pixel_map'],prune=True,batch_size=1024
-    )
-
-    # Collect dataset and create a transform to get images in correct format
-    dataset_transform = v1.Compose([
-        v1.ToTensor(),
-        v1.Resize((224,224), antialias=True)
-    ])
-    dataset = dataset_collector(
-        'IMAGENET1K2012', split='val', download=False,
-        transform=dataset_transform
-    )
-    dataset_name = 'imagenet_val'
-
-    # Create evaluator
-    evaluators = [ImageAUCEvaluator(
-        mode='srg', perturber=SingleColorPerturber(color='mean'), normalize=True
-    )]
-
-    run_evaluation(
-        pipeline, dataset, dataset_name, model, evaluators, sample_size=None,
-        attribution_types=['segments', 'pixels'], explain='top_class', fraction=0.0005,
-        image_idx=0, label_idx=1, per_input=False, version=0, num_workers=10,
-        compile=True, verbose=True
-    )
+    main()
