@@ -124,7 +124,7 @@ def main():
         help='Logs the results of each image instead of averaging over dataset'
     )
     parser.add_argument(
-        '--batch_size', type=int, default=1024, metavar='Nr',
+        '--batch_size', type=int, default=128, metavar='Nr',
         help='Maximum number of inputs to feed through a model at once'
     )
     parser.add_argument(
@@ -647,10 +647,16 @@ def run_evaluation(
         elif explain == 'label':
             target = label
 
-        # Get the attribution maps
-        segment_maps, pixel_maps = pipeline(
-            image, model, sample_size=sample_size, output_idxs=target
-        )
+        # Get the attribution maps (Return silently if there is pruning error)
+        try:
+            segment_maps, pixel_maps = pipeline(
+                image, model, sample_size=sample_size, output_idxs=target
+            )
+        except RuntimeError as e:
+            if 'All explainers have been pruned raising the' in str(e):
+                return
+            else:
+                raise e
 
         # Exclude experiments that raises errors (if pipeline.prune=True)
         if len(experiments) != len(pipeline.explainers):
@@ -703,14 +709,13 @@ def run_evaluation(
         general_results.append(correct/total_num)
 
     # Postprocess results and log them to file
-
     for explainer, rest in experiments:
         for attribution, evaluations in rest:
             for evaluator, logger, results in evaluations:
                 if per_input:
                     # Make a strings of all individual results
                     results = [
-                        ','.join([str(r) for r in res]) for res in results
+                        ','.join([f'{r:.10f}' for r in res]) for res in results
                     ]
                 else:
                     # Get the variance of results
@@ -724,6 +729,8 @@ def run_evaluation(
                     results[:int(len(results)/2)] = [
                         r/total_num for r in results[:int(len(results)/2)]
                     ]
+                    # Make results into nice uniform readable strings
+                    results = [f'{r:.10f}' for r in results]
                 key = general_id + [
                     str(a) for a in [explainer, attribution, evaluator]
                 ]
@@ -732,8 +739,8 @@ def run_evaluation(
     if verbose:
         eval_time = (datetime.now()-start).total_seconds()
         print(
-            f'\rEvaluation on {fraction*100}% of {dataset_name} took '
-            f'{eval_time} seconds.'
+            f'\rEvaluation on {fraction*100}% of {dataset_name} ('
+            f'{len(dataset_fraction)} images) took {eval_time:.1f} seconds.'
         )
     return
 
