@@ -439,6 +439,14 @@ def main():
             os.environ['TORCHDYNAMO_VERBOSE'] = '1'
             torch._dynamo.config.suppress_errors = True
             experiment = torch.compile(run_evaluation)
+            model.__call__ = torch.compile(model.__call__)
+            pipeline.__call__ = torch.compile(
+                pipeline.__call__
+            )
+            for explainer in pipeline.explainers:
+                explainer.__call__ = torch.compile(explainer.__call__)
+            for evaluator in evaluators:
+                evaluator.__call__ = torch.compile(evaluator.__call__)
 
         for version in range(args.versions):
             # Only need to run non-deterministic experiments once
@@ -450,7 +458,7 @@ def main():
                 explain='label' if args.use_true_class else 'top_class',
                 fraction=fraction, image_idx=image_idx, label_idx=label_idx,
                 per_input=args.per_input, version=version, num_workers=10,
-                compile=args.compile, verbose=not args.quiet
+                verbose=not args.quiet
             )
 
 
@@ -505,7 +513,7 @@ def run_evaluation(
     pipeline, dataset, dataset_name, model, evaluators, sample_size=None,
     attribution_types=['segments', 'pixels'], explain='top_class', fraction=1,
     image_idx=0, label_idx=None, per_input=False, version=0, num_workers=10,
-    compile=False, verbose=False
+    verbose=False
 ):
     '''
     Initializes an evaluation of an image attribution pipeline with the given
@@ -529,7 +537,6 @@ def run_evaluation(
         per_input (bool): If True, logs evaluation per input instead of aggregate
         version (int): Version used to separate runs with the same parameters
         num_workers (int): Nr of worker processes used to load data
-        compile (bool): Whether to use torch.compile to improve computation
         verbose (bool): Whether to print the evaluation progress
     '''
     # Start timer to check speed of evaluation
@@ -539,15 +546,6 @@ def run_evaluation(
     # Check for incompatible arguments
     if explain == 'label' and label_idx is None:
         raise ValueError('explain cannot be "label" when label_idx is None')
-
-    # If compile is set, use torch.compile to attempt to speed up experiment
-    if compile:
-        model.__call__ = torch.compile(model.__call__)
-        pipeline.__call__ = torch.compile(
-            pipeline.__call__
-        )
-        for evaluator in evaluators:
-            evaluator.__call__ = torch.compile(evaluator.__call__)
 
     # Create general headers for logging
     parameter_header = [
