@@ -116,8 +116,9 @@ def main():
         help='The number of samples used in auc evaluation'
     )
     parser.add_argument(
-        '--use_true_class', action='store_true',
-        help='Use actual class instead of predicted class for auc evaluation'
+        '--explain', type=str, nargs='+', default=['top_class'],
+        choices=['top_class', 'label', 'low_class'],
+        help='Classes to explain (some evaluators only use the first, some require more than one)'
     )
     parser.add_argument(
         '--per_input', action='store_true',
@@ -455,10 +456,9 @@ def main():
             experiment(
                 pipeline, dataset, dataset_name, model, evaluators,
                 sample_size=sample_size, attribution_types=attribution_types,
-                explain='label' if args.use_true_class else 'top_class',
-                fraction=fraction, image_idx=image_idx, label_idx=label_idx,
-                per_input=args.per_input, version=version, num_workers=10,
-                verbose=not args.quiet
+                explain=args.explain, fraction=fraction, image_idx=image_idx,
+                label_idx=label_idx, per_input=args.per_input, version=version,
+                num_workers=10, verbose=not args.quiet
             )
 
 
@@ -511,7 +511,7 @@ class Logger():
 
 def run_evaluation(
     pipeline, dataset, dataset_name, model, evaluators, sample_size=None,
-    attribution_types=['segments', 'pixels'], explain='top_class', fraction=1,
+    attribution_types=['segments', 'pixels'], explain=['top_class'], fraction=1,
     image_idx=0, label_idx=None, per_input=False, version=0, num_workers=10,
     verbose=False
 ):
@@ -530,7 +530,7 @@ def run_evaluation(
         evaluators [callable]: Returns [1,1,H,W], [1,1,H,W] attribution maps
         sample_size (int): The nr N of samples to use to perturb
         attribution_types [str]: List of 'segment' and/or 'pixel' attribution
-        explain (str): What output to explain ("top_class", "label", or "all")
+        explain [str]: Outputs to explain ("top_class", "label", "low_class")
         fraction (int): Fraction of the data to use for evaluation
         image_idx (int): Index of images in the entries of the dataset
         label_idx (int: Index of the image label (None if no labels)
@@ -544,14 +544,13 @@ def run_evaluation(
         start = datetime.now()
 
     # Check for incompatible arguments
-    if explain == 'label' and label_idx is None:
-        raise ValueError('explain cannot be "label" when label_idx is None')
+    if 'label' in explain and label_idx is None:
+        raise ValueError('explain cannot have "label" when label_idx is None')
 
     # Create general headers for logging
     parameter_header = [
-        'segmenter', 'sampler', 'perturber', 'sample_size', 'explained',
-        'model', 'fraction', 'version', 'explainer', 'attribution_type',
-        'evaluator'
+        'segmenter', 'sampler', 'perturber', 'sample_size', 'model', 'fraction',
+        'version', 'explained', 'explainer', 'attribution_type', 'evaluator'
     ]
     general_result_header = ['timestamp', 'nr_model_calls', 'model_accuracy']
 
@@ -573,7 +572,7 @@ def run_evaluation(
     # Create IDs for each part of the evaluation process
     general_id = [str(a) for a in [
         pipeline.segmenter, pipeline.sampler, pipeline.perturber, sample_size,
-        explain, model, fraction, version
+        model, fraction, version
     ]]
 
     # Create holders for each experiment
@@ -589,9 +588,11 @@ def run_evaluation(
     for i, (explainer, rest) in enumerate(experiments):
         for j, (attribution, evaluations) in enumerate(rest):
             for k, (evaluator, logger, results) in enumerate(evaluations):
-                key = general_id + [
-                    str(a) for a in [explainer, attribution, evaluator]
-                ]
+                explain_id = explain[:evaluator.explanations_used]
+                explain_id = explain_id[0] if len(explain_id)==1 else explain_id
+                key = general_id + [str(a) for a in [
+                    explain_id, explainer, attribution, evaluator
+                ]]
                 if logger.exists([key])[0]:
                     evaluations[k] = None
             rest[j] = (attribution, [a for a in evaluations if a != None])
@@ -633,22 +634,27 @@ def run_evaluation(
         # Extract the image, label (if applicable) and make a prediction
         image = data[image_idx].permute((0,2,3,1)).numpy(force=True)[0]
         label = None if label_idx is None else data[label_idx]
-        predicted = np.argmax(model(image), axis=1)
+        output = model(image)
+        top_class = np.argmax(output, axis=1)
 
         # If there is a label, check if it is correctly predicted
-        if not label_idx is None and label == predicted[0]:
+        if not label_idx is None and label == top_class[0]:
             correct += 1
 
         # Set the target to explain
-        if explain == 'top_class':
-            target = predicted[0]
-        elif explain == 'label':
-            target = label
+        targets = []
+        for target in explain:
+            if target == 'top_class' :
+                targets.append(top_class[0])
+            elif target  == 'label':
+                targets.append(label)
+            elif target == 'low_class':
+                targets.append(np.argmax(output, axis=1)[0])
 
         # Get the attribution maps (Return silently if there is pruning error)
         try:
             segment_maps, pixel_maps = pipeline(
-                image, model, sample_size=sample_size, output_idxs=target
+                image, model, sample_size=sample_size, output_idxs=targets
             )
         except RuntimeError as e:
             if 'All explainers have been pruned raising the' in str(e):
@@ -674,9 +680,13 @@ def run_evaluation(
         ):
             for attribution, evaluations in rest:
                 if attribution == 'segments':
-                    map = segment_map[0]
+                    map = segment_map[:evaluator.explanations_used]
                 elif attribution == 'pixels':
-                    map = pixel_map[0]
+                    map = pixel_map[:evaluator.explanations_used]
+                target = targets[:evaluator.explanations_used]
+                if evaluator.explanations_used == 1:
+                    map = map[0]
+                    target = target[0]
                 for evaluator, logger, results in evaluations:
                     score = evaluator(
                         image=image, model=model, vals=map, label=label,
@@ -729,9 +739,11 @@ def run_evaluation(
                     ]
                     # Make results into nice uniform readable strings
                     results = [f'{r:.10f}' for r in results]
-                key = general_id + [
-                    str(a) for a in [explainer, attribution, evaluator]
-                ]
+                explain_id = explain[:evaluator.explanations_used]
+                explain_id = explain_id[0] if len(explain_id)==1 else explain_id
+                key = general_id + [str(a) for a in [
+                    explain_id, explainer, attribution, evaluator
+                ]]
                 logger.write([key], [general_results+results])
 
     if verbose:

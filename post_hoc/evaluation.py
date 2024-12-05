@@ -23,6 +23,7 @@ class ImageAUCEvaluator():
         self, mode='srg', perturber=None, sample_size=10, normalize=False,
         return_curves=False, return_visuals=False
     ):
+        self.explanations_used = 1 # Nr of attributions used by this evaluator
         self.mif = []
         self.header = []
         if mode != 'mif':
@@ -92,8 +93,6 @@ class ImageAUCEvaluator():
             )
             visuals.append(perturbed_images)
             ys = model(perturbed_images)[model_idxs]
-            #if len(ys.shape) == 1:
-            #    ys = np.expand_dims(ys, axis=-1)
             self.curves.append(ys)
             self.scores.append(np.mean(ys, axis=0))
         scores, curves = self.scores, self.curves
@@ -145,12 +144,60 @@ class PointingGameEvaluator():
         hit_mask = hit_mask.reshape(-1)
         return np.mean(hit_mask[np.max(vals) == vals])
 
+class TargetDifferenceEvaluator():
+    '''
+    Calculates similarity scores between the explanation of 
+    '''
+    def __init__(self):
+        self.explanations_used = 2 # Nr of attributions used by this evaluator
+
 class AttributionSimilarityEvaluator():
     '''
     Calculates the similarity of two attributions according to some given
     metrics. Can be used to evaluate if attributions are different when
     explaining other outputs, different models, slightly perturbed inputs, etc.
+    Available metrics are "l1" and "l2" norms, "cosine" distance, "ssim", and
+    any function passed that takes two inputs and returns a similarity score.
+
+    Args:
+        metrics [str]: What similarity metrics to use and return
     '''
+    def __init__(self, metrics):
+        if len(metrics) == 0:
+            raise ValueError('metrics cannot be empty')
+        self.header = [str(metric) for metric in metrics]
+        self.metrics = []
+        for metric in metrics:
+            if metric == 'l1':
+                self.metrics.append(self.l1)
+            elif metric == 'l2':
+                self.metrics.append(self.l2)
+            elif metric == 'cosine':
+                self.metrics.append(self.cosine)
+            elif metric == 'ssim':
+                from skimage.metrics import structural_similarity
+                def ssim(x1, x2):
+                    structural_similarity(
+                        x1, x2, max(x1.max(),x2.max()) - min(x1.min(),x2.min())
+                    )
+                self.metrics.append(ssim)
+            else:
+                self.metrics.append(metric)
+
+    def l1(self, x1, x2): return np.sum(np.abs(x1-x2))
+
+    def l2(self, x1, x2): return np.sqrt(np.sum((x1-x2)**2))
+
+    def cosine(self, x1, x2):
+        x1, x2 = x1.flatten(), x2.flatten()
+        return np.dot(x1,x2) / (np.linalg.norm(x1)*np.linalg.norm(x2))
+
+    def __str__(self):
+        return f'AttributionSimilarityEvaluator({self.metrics})'
+
+    def __call__(self, vals1, vals2):
+        return [fun(vals1, vals2) for fun in self.metrics]
+
 
 
 # Evaluation samplers
