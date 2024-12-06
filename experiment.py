@@ -34,11 +34,13 @@ from post_hoc.image_perturbers import (
     RandomColorPerturber, ColorHistogramPerturber, Cv2InpaintPerturber
 )
 # Import connectors
-from post_hoc.connectors import SegmentationPredictionPipeline, SegmentationAttribuitionPipeline
+from post_hoc.connectors import SegmentationAttribuitionPipeline
 # Import PyTorch utils
 from post_hoc.torch_utils import TorchModelWrapper, ImageToTorch
 # Import explanation evaluators
-from post_hoc.evaluation import ImageAUCEvaluator
+from post_hoc.evaluation import (
+    ImageAUCEvaluator, TargetDifferenceEvaluator, AttributionSimilarityEvaluator
+)
 # Import dataset handler
 from dataset_collector import dataset_collector
 
@@ -55,8 +57,13 @@ def main():
     # Create parser and parse input
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--evaluations', type=str, nargs='+', default=['auc'], choices=['auc'],
-        help='The evaluations to perform (auc: LIF,MIF,SRG)'
+        '--evaluations', type=str, nargs='+', default=['auc'],
+        choices=['auc', 'target_diff'],
+        help=(
+            'The evaluations to perform:\n'
+            '\tauc: Incrementally occlude least/most important pixels'
+            '\ttarget_diff: Difference in explanations between classes'
+        )
     )
     parser.add_argument(
         '--dataset', type=str, default='imagenet', choices=['imagenet'],
@@ -428,6 +435,10 @@ def main():
                 mode='srg', perturber=SingleColorPerturber(color='mean'),
                 normalize=True
             ))
+        if 'target_diff' in evaluations:
+            evaluators.append(TargetDifferenceEvaluator(
+                AttributionSimilarityEvaluator(['l1','l2','cosine','ssim'])
+            ))
 
         pipeline = SegmentationAttribuitionPipeline(
             segmenter, sampler, perturber, explainers,
@@ -546,6 +557,12 @@ def run_evaluation(
     # Check for incompatible arguments
     if 'label' in explain and label_idx is None:
         raise ValueError('explain cannot have "label" when label_idx is None')
+    for evaluator in evaluators:
+        if evaluator.explanations_used > len(explain):
+            raise ValueError(
+                f'Evaluator {evaluator} uses {evaluator.explanations_used} '
+                f'explanations, but explain={explain} only has {len(explain)}'
+            )
 
     # Create general headers for logging
     parameter_header = [
@@ -633,23 +650,26 @@ def run_evaluation(
 
         # Extract the image, label (if applicable) and make a prediction
         image = data[image_idx].permute((0,2,3,1)).numpy(force=True)[0]
-        label = None if label_idx is None else data[label_idx]
-        output = model(image)
-        top_class = np.argmax(output, axis=1)
+        label = None
+        if not label_idx is None:
+            label =  data[label_idx][0].numpy(force=True)
+        output = model(image)[0]
+        top_class = np.argmax(output)
 
         # If there is a label, check if it is correctly predicted
-        if not label_idx is None and label == top_class[0]:
+        if not label_idx is None and label == top_class:
             correct += 1
 
         # Set the target to explain
         targets = []
         for target in explain:
             if target == 'top_class' :
-                targets.append(top_class[0])
+                targets.append(top_class)
             elif target  == 'label':
                 targets.append(label)
             elif target == 'low_class':
-                targets.append(np.argmax(output, axis=1)[0])
+                targets.append(np.argmin(output))
+        targets = np.array(targets)
 
         # Get the attribution maps (Return silently if there is pruning error)
         try:
@@ -679,18 +699,19 @@ def run_evaluation(
             segment_maps, pixel_maps, experiments
         ):
             for attribution, evaluations in rest:
-                if attribution == 'segments':
-                    map = segment_map[:evaluator.explanations_used]
-                elif attribution == 'pixels':
-                    map = pixel_map[:evaluator.explanations_used]
-                target = targets[:evaluator.explanations_used]
-                if evaluator.explanations_used == 1:
-                    map = map[0]
-                    target = target[0]
+
                 for evaluator, logger, results in evaluations:
+                    if attribution == 'segments':
+                        map = segment_map[:evaluator.explanations_used]
+                    elif attribution == 'pixels':
+                        map = pixel_map[:evaluator.explanations_used]
+                    target = targets[:evaluator.explanations_used]
+                    if evaluator.explanations_used == 1:
+                        map = map[0]
+                        target = target[0]
                     score = evaluator(
                         image=image, model=model, vals=map, label=label,
-                        model_idxs=(...,target)
+                        model_idxs=(...,target), output=output
                     )
                     if per_input:
                         # Store every individual score
