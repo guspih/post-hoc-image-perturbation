@@ -24,14 +24,14 @@ class ImageAUCEvaluator():
         return_curves=False, return_visuals=False
     ):
         self.explanations_used = 1 # Nr of attributions used by this evaluator
+        self.header = [] # Names of the scores returned by this evaluator
         self.mif = []
-        self.header = []
         if mode != 'mif':
-            self.mif.append(False)
             self.header.append('lif')
+            self.mif.append(False)
         if mode != 'lif':
-            self.mif.append(True)
             self.header.append('mif')
+            self.mif.append(True)
         if mode == 'srg':
             self.header.append('srg')
         if normalize:
@@ -146,10 +146,32 @@ class PointingGameEvaluator():
 
 class TargetDifferenceEvaluator():
     '''
-    Calculates similarity scores between the explanation of 
+    Uses the given callable to calculate a list of similarity/distance scores
+    between the input explanations. The two input explanations are assumed to
+    come from different target classes.
+
+    Args:
+        metrics (callable): Takes two explanations and returns [distance]
     '''
-    def __init__(self):
+    def __init__(self, metrics):
         self.explanations_used = 2 # Nr of attributions used by this evaluator
+        self.header = metrics.header # The scores returned by this evaluator
+        self.metrics = metrics
+
+    def __str__(self):
+
+        return f'TargetDifferenceEvaluator({self.metrics})'
+
+    def title(self): return 'target_diff_' + '_'.join(self.header)
+
+    def __call__(self, vals, **kwargs):
+        '''
+        Args:
+            vals (array): [2,...] array with the two explanations
+            **kwargs (dict): Used to catch arguments that are not used
+        '''
+        return self.metrics(vals[0][0], vals[1][0])
+
 
 class AttributionSimilarityEvaluator():
     '''
@@ -165,24 +187,33 @@ class AttributionSimilarityEvaluator():
     def __init__(self, metrics):
         if len(metrics) == 0:
             raise ValueError('metrics cannot be empty')
-        self.header = [str(metric) for metric in metrics]
+
+        self.header = [] # Names of the scores
         self.metrics = []
         for metric in metrics:
-            if metric == 'l1':
-                self.metrics.append(self.l1)
-            elif metric == 'l2':
-                self.metrics.append(self.l2)
-            elif metric == 'cosine':
-                self.metrics.append(self.cosine)
-            elif metric == 'ssim':
-                from skimage.metrics import structural_similarity
-                def ssim(x1, x2):
-                    structural_similarity(
-                        x1, x2, max(x1.max(),x2.max()) - min(x1.min(),x2.min())
-                    )
-                self.metrics.append(ssim)
-            else:
+            if not isinstance(metric, str):
                 self.metrics.append(metric)
+                self.header.append(metric.__name__)
+            else:
+                self.header.append(metric)
+                if metric == 'l1':
+                    self.metrics.append(self.l1)
+                elif metric == 'l2':
+                    self.metrics.append(self.l2)
+                elif metric == 'cosine':
+                    self.metrics.append(self.cosine)
+                elif metric == 'ssim':
+                    from skimage.metrics import structural_similarity
+                    def ssim(x1, x2):
+                        return structural_similarity(x1, x2, data_range=(
+                            max(x1.max(),x2.max()) - min(x1.min(),x2.min())
+                        ))
+                    self.metrics.append(ssim)
+                else:
+                    raise ValueError(
+                        f'metrics content must be callable or one of "l1", '
+                        f'"l2", "cosine", "ssim"; got {metric}'
+                    )
 
     def l1(self, x1, x2): return np.sum(np.abs(x1-x2))
 
@@ -193,7 +224,7 @@ class AttributionSimilarityEvaluator():
         return np.dot(x1,x2) / (np.linalg.norm(x1)*np.linalg.norm(x2))
 
     def __str__(self):
-        return f'AttributionSimilarityEvaluator({self.metrics})'
+        return f'AttributionSimilarityEvaluator({self.header})'
 
     def __call__(self, vals1, vals2):
         return [fun(vals1, vals2) for fun in self.metrics]
