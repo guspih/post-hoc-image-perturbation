@@ -39,7 +39,8 @@ from post_hoc.connectors import SegmentationAttribuitionPipeline
 from post_hoc.torch_utils import TorchModelWrapper, ImageToTorch
 # Import explanation evaluators
 from post_hoc.evaluation import (
-    ImageAUCEvaluator, TargetDifferenceEvaluator, AttributionSimilarityEvaluator
+    ImageAUCEvaluator, TargetDifferenceEvaluator, InputDifferenceEvaluator,
+    AttributionSimilarityEvaluator,
 )
 # Import dataset handler
 from dataset_collector import dataset_collector
@@ -58,11 +59,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--evaluations', type=str, nargs='+', default=['auc'],
-        choices=['auc', 'target_diff'],
+        choices=['auc', 'target_diff', 'input_diff'],
         help=(
             'The evaluations to perform:\n'
-            '\tauc: Incrementally occlude least/most important pixels'
-            '\ttarget_diff: Difference in explanations between classes'
+            '\tauc: Incrementally occlude least/most important pixels\n'
+            '\ttarget_diff: Difference in explanations between classes\n'
+            '\tinput_diff: Difference in explanations when input is perturbed\n'
         )
     )
     parser.add_argument(
@@ -186,9 +188,10 @@ def main():
 
     if args.run_rise_plus:
         rise_plus_dict = {
-            'evaluators': ['auc'], 'net':None, 'segmenter':'grid', 'n_seg':49,
-            'sampler':'random', 'perturber':'norm_zero', 'sample_size':None,
-            'softmax':True, 'blur':False,
+            'evaluators': ['auc', 'target_diff'], 'net':None,
+            'segmenter':'grid', 'n_seg':49, 'sampler':'random',
+            'perturber':'norm_zero', 'sample_size':None, 'softmax':True, 
+            'blur':False,
             'explainers':['rise', 'lime', 'shap', 'pda', 'ciu', 'inverse_ciu'],
             'attribution_types':['segments', 'pixels'], 'fraction':1,
             'segmenter_kw':{'bilinear':True}, 'sampler_kw':{},
@@ -433,10 +436,14 @@ def main():
         if 'auc' in evaluations:
             evaluators.append(ImageAUCEvaluator(
                 mode='srg', perturber=SingleColorPerturber(color='mean'),
-                normalize=True
+                normalize=True, steps=10
             ))
         if 'target_diff' in evaluations:
             evaluators.append(TargetDifferenceEvaluator(
+                AttributionSimilarityEvaluator(['l1','l2','cosine','ssim'])
+            ))
+        if 'input_diff' in evaluations:
+            evaluators.append(InputDifferenceEvaluator(
                 AttributionSimilarityEvaluator(['l1','l2','cosine','ssim'])
             ))
 
@@ -564,6 +571,18 @@ def run_evaluation(
                 f'explanations, but explain={explain} only has {len(explain)}'
             )
 
+    # Cut dataset into the given fraction and prepare a loader
+    dataset_fraction = Subset(
+        dataset, [int(x) for x in np.linspace(
+            0, len(dataset), int(len(dataset)*fraction), endpoint=False
+        )]
+    )
+    batch_size = 1
+    data_loader = DataLoader(
+        dataset_fraction, batch_size=batch_size, shuffle=False,
+        num_workers=num_workers
+    )
+
     # Create general headers for logging
     parameter_header = [
         'segmenter', 'sampler', 'perturber', 'sample_size', 'model', 'fraction',
@@ -589,7 +608,7 @@ def run_evaluation(
     # Create IDs for each part of the evaluation process
     general_id = [str(a) for a in [
         pipeline.segmenter, pipeline.sampler, pipeline.perturber, sample_size,
-        model, fraction, version
+        model, len(dataset_fraction), version
     ]]
 
     # Create holders for each experiment
@@ -606,7 +625,10 @@ def run_evaluation(
         for j, (attribution, evaluations) in enumerate(rest):
             for k, (evaluator, logger, results) in enumerate(evaluations):
                 explain_id = explain[:evaluator.explanations_used]
-                explain_id = explain_id[0] if len(explain_id)==1 else explain_id
+                if len(explain_id)==1:
+                    explain_id = explain_id[0]
+                else:
+                    explain_id = '('+','.join(explain_id) + ')'
                 key = general_id + [str(a) for a in [
                     explain_id, explainer, attribution, evaluator
                 ]]
@@ -622,18 +644,6 @@ def run_evaluation(
     # Set the seeds for consistent experiments
     np.random.seed(version)
     random.seed(version)
-
-    # Cut dataset into the given fraction and prepare a loader
-    dataset_fraction = Subset(
-        dataset, [int(x) for x in np.linspace(
-            0, len(dataset), int(len(dataset)*fraction), endpoint=False
-        )]
-    )
-    batch_size = 1
-    data_loader = DataLoader(
-        dataset_fraction, batch_size=batch_size, shuffle=False,
-        num_workers=num_workers
-    )
 
     # Iterate over all images, perturb them, expain them, and calculate AUC
     correct = 0
@@ -711,7 +721,9 @@ def run_evaluation(
                         target = target[0]
                     score = evaluator(
                         image=image, model=model, vals=map, label=label,
-                        model_idxs=(...,target), output=output
+                        model_idxs=target, output=output,
+                        pipeline=pipeline, sample_size=sample_size, 
+                        attribution=attribution, explainer=explainer
                     )
                     if per_input:
                         # Store every individual score
@@ -761,7 +773,10 @@ def run_evaluation(
                     # Make results into nice uniform readable strings
                     results = [f'{r:.10f}' for r in results]
                 explain_id = explain[:evaluator.explanations_used]
-                explain_id = explain_id[0] if len(explain_id)==1 else explain_id
+                if len(explain_id)==1:
+                    explain_id = explain_id[0]
+                else:
+                    explain_id = '('+','.join(explain_id) + ')'
                 key = general_id + [str(a) for a in [
                     explain_id, explainer, attribution, evaluator
                 ]]
