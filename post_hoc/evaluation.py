@@ -14,13 +14,13 @@ class ImageAUCEvaluator():
     Args:
         mode (str): Which score to calculate. 'mif'/'lif' are included in 'srg'
         perturber (callable): Perturber used to remove the segments
-        sample_size (int): How many perturbed images to generate
+        steps (int): Over how many steps to iteratively occlude the image
         normalize (bool): Whether to normalize so the curve(s) goes from 1 to 0
         return_curves (bool): Whether to also return the model outputs
         return_visuals (bool): Whether to also return the deletion images
     '''
     def __init__(
-        self, mode='srg', perturber=None, sample_size=10, normalize=False,
+        self, mode='srg', perturber=None, steps=10, normalize=False,
         return_curves=False, return_visuals=False
     ):
         self.explanations_used = 1 # Nr of attributions used by this evaluator
@@ -38,7 +38,7 @@ class ImageAUCEvaluator():
             self.header = self.header + ['norm_'+a for a in self.header]
         self.mode = mode
         self.perturber = perturber
-        self.sample_size = sample_size
+        self.steps = steps
         self.normalize = normalize
         self.return_curves = return_curves
         self.return_visuals = return_visuals
@@ -51,7 +51,7 @@ class ImageAUCEvaluator():
 
     def __str__(self):
         content = (
-            f'{self.mode},{self.perturber},{self.sample_size},{self.normalize}'
+            f'{self.mode},{self.perturber},{self.steps},{self.normalize}'
         )
         return f'ImageAUCEvaluator({content})'
 
@@ -59,8 +59,7 @@ class ImageAUCEvaluator():
         return f'auc_{self.mode}' + ('_norm' if self.normalize else '')
 
     def __call__(
-        self, image, model, vals, masks=None, sample_size=None, model_idxs=...,
-        **kwargs
+        self, image, model, vals, masks=None, model_idxs=..., **kwargs
     ):
         '''
         Args:
@@ -68,7 +67,6 @@ class ImageAUCEvaluator():
             model (callable): Model used to predict from batches of images
             vals (array): Array of attribution scores for each feature
             masks (array): [S,H,W] array of segment masks (None=vals per pixel)
-            sample_size (int): Nr of deletion steps (overrides self.sample_size)
             model_idxs (index): Index for the model outputs to use
             **kwargs (dict): Used to catch arguments that are not used
         Returns:
@@ -81,9 +79,7 @@ class ImageAUCEvaluator():
         self.scores = []
         self.curves = []
         for mif in self.mif:
-            if sample_size == None:
-                sample_size = self.sample_size
-            samples = auc_sampler(vals, sample_size, mif)
+            samples = auc_sampler(vals, self.steps, mif)
             if not masks is None:
                 distortion_masks = perturbation_masks(masks, samples)
             else:
@@ -92,7 +88,7 @@ class ImageAUCEvaluator():
                 image, distortion_masks, samples, masks
             )
             visuals.append(perturbed_images)
-            ys = model(perturbed_images)[model_idxs]
+            ys = model(perturbed_images)[:, model_idxs]
             self.curves.append(ys)
             self.scores.append(np.mean(ys, axis=0))
         scores, curves = self.scores, self.curves
@@ -159,7 +155,6 @@ class TargetDifferenceEvaluator():
         self.metrics = metrics
 
     def __str__(self):
-
         return f'TargetDifferenceEvaluator({self.metrics})'
 
     def title(self): return 'target_diff_' + '_'.join(self.header)
@@ -173,6 +168,82 @@ class TargetDifferenceEvaluator():
         return self.metrics(vals[0][0], vals[1][0])
 
 
+class InputDifferenceEvaluator():
+    '''
+    Args:
+        metrics (callable): Takes two explanations and returns [distance]
+        steps (int): Nr of steps to incrementally increase the input noise over
+        noise_max (float): The maximum fraction of noise added to the image
+    '''
+    def __init__(self, metrics, steps=1, noise_max=0.01):
+        self.explanations_used = 1 # Nr of attributions used by this evaluator
+        self.metrics = metrics
+        self.steps = steps
+        self.noise_max = noise_max
+        self.noise_levels = np.linspace(0, self.noise_max, self.steps+1)[1:]
+        self.header = []
+        for noise_level in self.noise_levels:
+            print(noise_level)
+            self.header = self.header + [
+                metric+f'_{noise_level*100:.2f}%' for metric in metrics.header
+            ]
+
+        # Variables to hold information between calls
+        self.explanations = []
+        self.current_explained = []
+
+    def __str__(self):
+        return ( 
+            f'InputDifferenceEvaluator({self.metrics},{self.steps},'
+            f'{self.noise_max})'
+        )
+
+    def title(self):
+        return 'input_diff_' + '_'.join(
+            self.metrics.header + [f'{a*100}%' for a in self.noise_levels]
+        )
+
+    def reset(self):
+        self.explanations = []
+
+    def __call__(
+        self, image, model, vals, pipeline, sample_size, attribution, explainer,
+        model_idxs=..., **kwargs
+    ):
+        is_current = all([np.all(a==b) for a, b in zip(self.current_explained, [
+            image, model, pipeline, sample_size, model_idxs
+        ])])
+        if (
+            len(self.current_explained) == 0 or not is_current
+        ):
+            self.current_explained = [
+                image, model, pipeline, sample_size, model_idxs
+            ]
+            self.explanations = []
+
+        if len(self.explanations) == 0:
+            noise = np.random.rand(*image.shape)
+            for noise_level in self.noise_levels:
+                noise_image = (noise-image)*noise_level + image
+                self.explanations.append(pipeline(
+                    noise_image, model, sample_size=sample_size,
+                    output_idxs=model_idxs
+                ))
+        ret = []
+        for noise_level, (segment_maps, pixel_maps) in zip(
+            self.noise_levels, self.explanations
+        ):
+            if attribution == 'segments':
+                maps = segment_maps
+            elif attribution == 'pixels':
+                maps = pixel_maps
+            map = maps[pipeline.explainers.index(explainer)][0]
+            ret = ret + (self.metrics(vals[0], map[0]))
+        return ret
+
+
+
+
 class AttributionSimilarityEvaluator():
     '''
     Calculates the similarity of two attributions according to some given
@@ -180,22 +251,34 @@ class AttributionSimilarityEvaluator():
     explaining other outputs, different models, slightly perturbed inputs, etc.
     Available metrics are "l1" and "l2" norms, "cosine" distance, "ssim", and
     any function passed that takes two inputs and returns a similarity score.
+    The attributions can be normalized to give more comparable scores, in this
+    case the normalization parameters are drawn from the first attribution and
+    applied to both attributions. Available normalizations are "none" for no
+    changes to the attribution, "unit" for brining the first attribution
+    into the range of 0 to 1, and "standard" to set mean to 0 and 
 
     Args:
         metrics [str]: What similarity metrics to use and return
+        normalize (str): How to normalize before comparison
     '''
-    def __init__(self, metrics):
+    def __init__(self, metrics, normalize='none'):
         if len(metrics) == 0:
             raise ValueError('metrics cannot be empty')
+        if not normalize in ['none', 'unit', 'standard']:
+            raise ValueError(
+                f'normalize has to be one of "none", "unit", or "standard" but '
+                f'got {normalize}'
+            )
 
         self.header = [] # Names of the scores
         self.metrics = []
+        norm_str = '' if normalize == 'none' else '_' + normalize
         for metric in metrics:
             if not isinstance(metric, str):
                 self.metrics.append(metric)
-                self.header.append(metric.__name__)
+                self.header.append(metric.__name__ + norm_str)
             else:
-                self.header.append(metric)
+                self.header.append(metric + norm_str)
                 if metric == 'l1':
                     self.metrics.append(self.l1)
                 elif metric == 'l2':
@@ -214,6 +297,7 @@ class AttributionSimilarityEvaluator():
                         f'metrics content must be callable or one of "l1", '
                         f'"l2", "cosine", "ssim"; got {metric}'
                     )
+        self.normalize = normalize
 
     def l1(self, x1, x2): return np.sum(np.abs(x1-x2))
 
@@ -224,11 +308,20 @@ class AttributionSimilarityEvaluator():
         return np.dot(x1,x2) / (np.linalg.norm(x1)*np.linalg.norm(x2))
 
     def __str__(self):
-        return f'AttributionSimilarityEvaluator({self.header})'
+        return f'AttributionSimilarityEvaluator({self.header},{self.normalize})'
 
     def __call__(self, vals1, vals2):
+        if self.normalize == 'unit':
+            min1 = np.min(vals1)
+            max1 = np.max(vals1)
+            vals1 = (vals1-min1)/(max1-min1)
+            vals2 = (vals2-min1)/(max1-min1)
+        elif self.normalize == 'standard':
+            mean1 = np.mean(vals1)
+            std1 = np.std(vals1)
+            vals1 = (vals1-mean1)/std1
+            vals2 = (vals2-mean1)/std1
         return [fun(vals1, vals2) for fun in self.metrics]
-
 
 
 # Evaluation samplers
