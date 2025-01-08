@@ -27,7 +27,7 @@ from post_hoc.image_segmenters import (
     GridSegmenter, WrapperSegmenter, FadeMaskSegmenter
 )
 # Import segmentation and perturbation utils
-from post_hoc.image_segmenters import perturbation_masks
+from post_hoc.image_segmenters import perturbation_masks, segments_to_masks
 # Import image perturbers
 from post_hoc.image_perturbers import (
     SingleColorPerturber, ReplaceImagePerturber, TransformPerturber,
@@ -40,7 +40,7 @@ from post_hoc.torch_utils import TorchModelWrapper, ImageToTorch
 # Import explanation evaluators
 from post_hoc.evaluation import (
     ImageAUCEvaluator, TargetDifferenceEvaluator, InputDifferenceEvaluator,
-    AttributionSimilarityEvaluator,
+    AttributionSimilarityEvaluator, LocalizationEvaluator
 )
 # Import dataset handler
 from dataset_collector import dataset_collector
@@ -59,7 +59,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--evaluations', type=str, nargs='+', default=['auc'],
-        choices=['auc', 'target_diff', 'input_diff'],
+        choices=['auc', 'target_diff', 'input_diff', 'localization'],
         help=(
             'The evaluations to perform:\n'
             '\tauc: Incrementally occlude least/most important pixels\n'
@@ -68,8 +68,12 @@ def main():
         )
     )
     parser.add_argument(
-        '--dataset', type=str, default='imagenet', choices=['imagenet'],
-        help='The dataset to evaluate on (imagenet: ImageNet validation set)'
+        '--dataset', type=str, default='imagenet', choices=['imagenet', 'voc'],
+        help=(
+            'The dataset to evaluate on:\n'
+            '\timagenet: The validation set of ImageNet (ILSCVRC)\n'
+            '\tvoc: The test set of PASCAL VOC 2007 segmentation dataset\n'
+        )
     )
     parser.add_argument(
         '--nets', type=str, nargs='+', default=['alexnet'],
@@ -188,7 +192,7 @@ def main():
 
     if args.run_rise_plus:
         rise_plus_dict = {
-            'evaluators': ['auc', 'target_diff'], 'net':None,
+            'evaluators': args.evaluations, 'net':None,
             'segmenter':'grid', 'n_seg':49, 'sampler':'random',
             'perturber':'norm_zero', 'sample_size':None, 'softmax':True, 
             'blur':False,
@@ -320,26 +324,6 @@ def main():
             segmenter_kw, sampler_kw, perturber_kw, explainer_kw
         )
 
-        # Get model and weights
-        weights = 'IMAGENET1K_V2' if net == 'resnet50' else 'IMAGENET1K_V1'
-        net = torchvision.models.__dict__[net](weights=weights)
-        net.eval()
-
-        # Create a transform to prepare images for Torchvision
-        transforms = v1.Compose([
-            ImageToTorch(),
-            v1.Normalize(
-                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-            ),
-            v1.Resize((224,224), antialias=True)
-        ])
-
-        # Wrap model and check if it can run on the GPU
-        gpu = torch.cuda.is_available()
-        model = TorchModelWrapper(
-            net, transforms, gpu=gpu, softmax_out=softmax
-        )
-
         # Prepare the dataset
         if args.dataset == 'imagenet':
             dataset_transform = v1.Compose([
@@ -353,6 +337,73 @@ def main():
             dataset_name = 'imagenet_val'
             image_idx=0
             label_idx=1
+
+            # Get model and weights
+            weights = 'IMAGENET1K_V2' if net == 'resnet50' else 'IMAGENET1K_V1'
+            net = torchvision.models.__dict__[net](weights=weights)
+            net.eval()
+        elif args.dataset == 'voc':
+            image_transform = v1.Compose([
+                v1.ToTensor(),
+                v1.Resize((520,520), antialias=True)
+            ])
+            target_transform = v1.Compose([
+                v1.ToTensor(),
+                v1.Resize((520,520), antialias=False, interpolation=v1.InterpolationMode.NEAREST),
+                v1.Lambda(lambda x: (x*255).to(torch.int16))
+            ])
+            #def segmentation_to_class(x):
+            #    x[x==255] = 0
+            #    y = torch.nn.functional.one_hot(x.long(), num_classes=20)
+            #    y = y.sum(dim=(1,2))
+            #    y[:,0] = 0
+            #    return torch.argmax(y)
+            #target_transform = v1.Compose([
+            #    v1.ToTensor(),
+            #    v1.Lambda(lambda x: (x*255).to(torch.int16)),
+            #    v1.Lambda(segmentation_to_class)
+            #])
+            dataset = dataset_collector(
+                'VOCSegmentation', split='test', download=False,
+                transform=image_transform, target_transform=target_transform
+            )
+            dataset_name = 'voc_test'
+            image_idx=0
+            label_idx=1
+
+            # Get model and weights
+            if net != 'resnet50':
+                raise ValueError('Only resnet50 is available for VOC dataset')
+            class ClassifierFCN(torch.nn.Module):
+                def __init__(self, net):
+                    super().__init__()
+                    self.net = net
+                def forward(self, x):
+                    y = torch.sum(self.net(x)['out'], axis=(-1, -2))
+                    #y = self.net(x)['out']
+                    #num_classes=y.shape[1]
+                    #y = torch.argmax(y, dim=1)
+                    #y = torch.nn.functional.one_hot(y, num_classes=num_classes)
+                    #y = y.sum(dim=(1,2))
+                    y[:,0] = -9999999  #The model will never predict background
+                    return y
+            net = ClassifierFCN(torchvision.models.segmentation.fcn_resnet50(
+                weights='COCO_WITH_VOC_LABELS_V1'
+            ))
+
+        # Create a transform to prepare images for Torchvision
+        transforms = v1.Compose([
+            ImageToTorch(),
+            v1.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            ),
+        ])
+
+        # Wrap model and check if it can run on the GPU
+        gpu = torch.cuda.is_available()
+        model = TorchModelWrapper(
+            net, transforms, gpu=gpu, softmax_out=softmax
+        )
 
         # Create the segmenter
         hw = round(np.sqrt(n_seg))
@@ -446,6 +497,8 @@ def main():
             evaluators.append(InputDifferenceEvaluator(
                 AttributionSimilarityEvaluator(['l1','l2','cosine','ssim'])
             ))
+        if 'localization' in evaluations:
+            evaluators.append(LocalizationEvaluator())
 
         pipeline = SegmentationAttribuitionPipeline(
             segmenter, sampler, perturber, explainers,
@@ -661,14 +714,14 @@ def run_evaluation(
         # Extract the image, label (if applicable) and make a prediction
         image = data[image_idx].permute((0,2,3,1)).numpy(force=True)[0]
         label = None
-        if not label_idx is None:
-            label =  data[label_idx][0].numpy(force=True)
         output = model(image)[0]
-        top_class = np.argmax(output)
+        top_class = np.argmax(output, axis=0)
 
-        # If there is a label, check if it is correctly predicted
-        if not label_idx is None and label == top_class:
-            correct += 1
+        # If there is a label, add the average accuracy on this data point
+        if not label_idx is None:
+            label = data[label_idx][0].numpy(force=True)
+            correct += np.mean(label == top_class)
+            print(label, top_class)
 
         # Set the target to explain
         targets = []
@@ -709,7 +762,6 @@ def run_evaluation(
             segment_maps, pixel_maps, experiments
         ):
             for attribution, evaluations in rest:
-
                 for evaluator, logger, results in evaluations:
                     if attribution == 'segments':
                         map = segment_map[:evaluator.explanations_used]
@@ -747,7 +799,7 @@ def run_evaluation(
     if label_idx is None:
         general_results.append('N/A')
     else:
-        general_results.append(correct/total_num)
+        general_results.append(f'{correct/total_num:.10f}')
 
     # Postprocess results and log them to file
     for explainer, rest in experiments:
