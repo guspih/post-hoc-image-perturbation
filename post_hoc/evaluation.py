@@ -118,12 +118,16 @@ class ImageAUCEvaluator():
             scores.append(scores[0]-scores[1])
         return scores, curves
 
-class PointingGameEvaluator():
+class LocalizationEvaluator():
     '''
     Calculates the Pointing Game score of an attribution as the fraction of the
     most attributed pixels that lie within the ground truth segmentation.
     '''
-    def __call__(self, hit_mask, vals, masks=None):
+    def __init__(self):
+        self.explanations_used = 1 # Nr of attributions used by this evaluator
+        self.header = ['pointing_game'] # The scores returned by this evaluator
+
+    def __call__(self, label, vals, masks=None, model_idxs=..., **kwargs):
         '''
         Args:
             hit_mask (array): [H,W] array of true segmentations of the image
@@ -137,8 +141,13 @@ class PointingGameEvaluator():
         if len(vals.shape) == 3:
             vals = np.squeeze(vals, axis=0)
         vals = vals.reshape(-1)
-        hit_mask = hit_mask.reshape(-1)
-        return np.mean(hit_mask[np.max(vals) == vals])
+        label = label.reshape(-1)
+        return [np.mean((label==model_idxs)[np.max(vals) == vals])]
+
+    def __str__(self): return 'LocalizationEvaluator()'
+
+    def title(self): return 'localization'
+
 
 class TargetDifferenceEvaluator():
     '''
@@ -203,9 +212,6 @@ class InputDifferenceEvaluator():
             self.metrics.header + [f'{a*100}%' for a in self.noise_levels]
         )
 
-    def reset(self):
-        self.explanations = []
-
     def __call__(
         self, image, model, vals, pipeline, sample_size, attribution, explainer,
         model_idxs=..., **kwargs
@@ -240,8 +246,6 @@ class InputDifferenceEvaluator():
             map = maps[pipeline.explainers.index(explainer)][0]
             ret = ret + (self.metrics(vals[0], map[0]))
         return ret
-
-
 
 
 class AttributionSimilarityEvaluator():
