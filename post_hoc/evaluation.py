@@ -127,7 +127,9 @@ class LocalizationEvaluator():
         self.explanations_used = 1 # Nr of attributions used by this evaluator
         self.header = ['pointing_game'] # The scores returned by this evaluator
 
-    def __call__(self, label, vals, masks=None, model_idxs=..., **kwargs):
+    def __call__(
+        self, target_segment, vals, masks=None, model_idxs=..., **kwargs
+    ):
         '''
         Args:
             hit_mask (array): [H,W] array of true segmentations of the image
@@ -141,8 +143,8 @@ class LocalizationEvaluator():
         if len(vals.shape) == 3:
             vals = np.squeeze(vals, axis=0)
         vals = vals.reshape(-1)
-        label = label.reshape(-1)
-        return [np.mean((label==model_idxs)[np.max(vals) == vals])]
+        target_segment = target_segment.reshape(-1)
+        return [np.mean((target_segment==model_idxs)[np.max(vals) == vals])]
 
     def __str__(self): return 'LocalizationEvaluator()'
 
