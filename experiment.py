@@ -3,6 +3,8 @@ import numpy as np
 from skimage.segmentation import slic
 from skimage.filters import gaussian
 import torch
+import torch.utils
+import torch.utils.data
 import torchvision
 import torchvision.transforms as v1
 from torch.utils.data import DataLoader, Subset
@@ -12,6 +14,7 @@ from datetime import datetime
 import argparse
 import itertools
 import random
+from functools import reduce
 
 # Import samplers
 from post_hoc.samplers import (
@@ -335,8 +338,9 @@ def main():
                 transform=dataset_transform
             )
             dataset_name = 'imagenet_val'
-            image_idx=0
-            label_idx=1
+            image_idx = 0
+            label_idx = 1
+            segment_idx = None
 
             # Get model and weights
             weights = 'IMAGENET1K_V2' if net == 'resnet50' else 'IMAGENET1K_V1'
@@ -347,29 +351,29 @@ def main():
                 v1.ToTensor(),
                 v1.Resize((520,520), antialias=True)
             ])
+            def segmentation_to_class(x):
+                x[x==255] = 0
+                y = torch.nn.functional.one_hot(x.long(), num_classes=21)
+                y = y.sum(dim=(1,2))
+                y[:,0] = 0
+                return torch.argmax(y), x
             target_transform = v1.Compose([
                 v1.ToTensor(),
-                v1.Resize((520,520), antialias=False, interpolation=v1.InterpolationMode.NEAREST),
-                v1.Lambda(lambda x: (x*255).to(torch.int16))
+                v1.Resize(
+                    (520,520), antialias=False, 
+                    interpolation=v1.InterpolationMode.NEAREST
+                ),
+                v1.Lambda(lambda x: (x*255).to(torch.int16)),
+                v1.Lambda(segmentation_to_class)
             ])
-            #def segmentation_to_class(x):
-            #    x[x==255] = 0
-            #    y = torch.nn.functional.one_hot(x.long(), num_classes=20)
-            #    y = y.sum(dim=(1,2))
-            #    y[:,0] = 0
-            #    return torch.argmax(y)
-            #target_transform = v1.Compose([
-            #    v1.ToTensor(),
-            #    v1.Lambda(lambda x: (x*255).to(torch.int16)),
-            #    v1.Lambda(segmentation_to_class)
-            #])
             dataset = dataset_collector(
                 'VOCSegmentation', split='test', download=False,
                 transform=image_transform, target_transform=target_transform
             )
             dataset_name = 'voc_test'
-            image_idx=0
-            label_idx=1
+            image_idx = 0
+            label_idx = [1,0]
+            segment_idx = [1,1]
 
             # Get model and weights
             if net != 'resnet50':
@@ -390,6 +394,7 @@ def main():
             net = ClassifierFCN(torchvision.models.segmentation.fcn_resnet50(
                 weights='COCO_WITH_VOC_LABELS_V1'
             ))
+            net.eval()
 
         # Create a transform to prepare images for Torchvision
         transforms = v1.Compose([
@@ -528,8 +533,9 @@ def main():
                 pipeline, dataset, dataset_name, model, evaluators,
                 sample_size=sample_size, attribution_types=attribution_types,
                 explain=args.explain, fraction=fraction, image_idx=image_idx,
-                label_idx=label_idx, per_input=args.per_input, version=version,
-                num_workers=10, verbose=not args.quiet
+                label_idx=label_idx, segment_idx=segment_idx,
+                per_input=args.per_input, version=version, num_workers=10,
+                verbose=not args.quiet
             )
 
 
@@ -547,6 +553,17 @@ def cancast(val):
         if val.lower() == 'false': return False
     return val
 
+def get_idx(ls, idx):
+    '''
+    Gets the element in a an arbitrarily nested list at the given arbitrarily
+    deep index.
+    Args:
+        ls (iterable): The list to get the element from
+        idx (int/[int]]): The index as an int or list of ints
+    '''
+    if isinstance(idx, int):
+        return ls[idx]
+    return reduce(lambda a,b: a[b], [list(ls)]+list(idx))
 
 class Logger():
     '''
@@ -580,11 +597,12 @@ class Logger():
                 writer.writerow(row)
 
 
+
 def run_evaluation(
     pipeline, dataset, dataset_name, model, evaluators, sample_size=None,
     attribution_types=['segments', 'pixels'], explain=['top_class'], fraction=1,
-    image_idx=0, label_idx=None, per_input=False, version=0, num_workers=10,
-    verbose=False
+    image_idx=0, label_idx=None, segment_idx=None, per_input=False, version=0,
+    num_workers=10, verbose=False
 ):
     '''
     Initializes an evaluation of an image attribution pipeline with the given
@@ -604,7 +622,8 @@ def run_evaluation(
         explain [str]: Outputs to explain ("top_class", "label", "low_class")
         fraction (int): Fraction of the data to use for evaluation
         image_idx (int): Index of images in the entries of the dataset
-        label_idx (int: Index of the image label (None if no labels)
+        label_idx (int): Index of the image label (None if no labels)
+        segment_idx (int): Index of the image segmentation (None if no segment)
         per_input (bool): If True, logs evaluation per input instead of aggregate
         version (int): Version used to separate runs with the same parameters
         num_workers (int): Nr of worker processes used to load data
@@ -702,7 +721,6 @@ def run_evaluation(
     correct = 0
     nr_model_calls = 0
     for i, data in enumerate(data_loader):
-
         # If verbose, print info
         if verbose:
             print(
@@ -712,16 +730,20 @@ def run_evaluation(
             )
 
         # Extract the image, label (if applicable) and make a prediction
-        image = data[image_idx].permute((0,2,3,1)).numpy(force=True)[0]
+        image = get_idx(data, image_idx).permute((0,2,3,1)).numpy(force=True)[0]
         label = None
+        target_segment = None
         output = model(image)[0]
         top_class = np.argmax(output, axis=0)
 
         # If there is a label, add the average accuracy on this data point
         if not label_idx is None:
-            label = data[label_idx][0].numpy(force=True)
+            label = get_idx(data, label_idx)[0].numpy(force=True)
             correct += np.mean(label == top_class)
-            print(label, top_class)
+
+        # If there is a segment, extract it
+        if not segment_idx is None:
+            target_segment = get_idx(data, segment_idx)[0].numpy(force=True)
 
         # Set the target to explain
         targets = []
@@ -773,9 +795,10 @@ def run_evaluation(
                         target = target[0]
                     score = evaluator(
                         image=image, model=model, vals=map, label=label,
-                        model_idxs=target, output=output,
-                        pipeline=pipeline, sample_size=sample_size, 
-                        attribution=attribution, explainer=explainer
+                        target_segment = target_segment, model_idxs=target,
+                        output=output, pipeline=pipeline,
+                        sample_size=sample_size, attribution=attribution,
+                        explainer=explainer
                     )
                     if per_input:
                         # Store every individual score
