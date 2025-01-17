@@ -503,7 +503,9 @@ def main():
                 AttributionSimilarityEvaluator(['l1','l2','cosine','ssim'])
             ))
         if 'localization' in evaluations:
-            evaluators.append(LocalizationEvaluator())
+            evaluators.append(
+                LocalizationEvaluator(['pointing_game', 'iou', 'wiosr'])
+            )
 
         pipeline = SegmentationAttribuitionPipeline(
             segmenter, sampler, perturber, explainers,
