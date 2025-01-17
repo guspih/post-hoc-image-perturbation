@@ -6,10 +6,18 @@ from .image_segmenters import perturbation_masks
 #Evaluators
 class ImageAUCEvaluator():
     '''
-    Evaluates an image attribution through calculating the area under the
-    deletion curve by deleting pixels/segments from most to least attributed
-    (mif) or deleting the least attributed first (lif). Can also calculate both
-    and return the difference between them (srg).
+    Evaluates an attribution map using insertion/deletion area-under-the-curve
+    metrics. Available metrics are lif, mif, and srg (which combines the other
+    two). Least Influential First is also known as insertion and consists of
+    iteratively occluding the least attributed pixels, calculating the
+    prediction at each step, and taking the average prediction as the area under
+    the prediction-occlusion curve. Most Influential First is also known as
+    deletion and works the same as LIF except the most attributed pixels are
+    occluded first. A good attribution should have high LIF and low MIF scores
+    as occluding the least attributed pixels should leave the salient regions
+    intact and vice versa for the most attributed pixels. Symmetric Relevance
+    Gain is calculated as the difference between LIF and MIF and is supposedly
+    less variable with respect to the type of perturbation used for occlusion.
 
     Args:
         mode (str): Which score to calculate. 'mif'/'lif' are included in 'srg'
@@ -120,12 +128,35 @@ class ImageAUCEvaluator():
 
 class LocalizationEvaluator():
     '''
-    Calculates the Pointing Game score of an attribution as the fraction of the
-    most attributed pixels that lie within the ground truth segmentation.
+    Evaluates an attribution map using localization metrics by comparing it to a
+    human segmented ground-truth of the salient area. Good localization scores
+    does not necessarily equate a good explanation as the model being explained
+    may actually use information outside the salient region to make the
+    prediction which would then be good to include in the explanation of the
+    model. The localization metrics to choose from are pointing_game, iou, and
+    wiosr. Pointing Game score is calculated by the fraction of maximum
+    attributed pixels that lie in the salient area. Intersection-over-union
+    measure the fraction between the top X attributed pixels found in the
+    salient region of size X and the total unique pixels in the top X attributed
+    and the salient region. Weighted-intersection-over-salient-region is
+    measured as the fraction between the attribution of pixels in the salient
+    region and the total attribution. In this implementation the attribution is
+    normalized so the minumum attributed pixel is zero and the cutoff for pixels
+    to include is also zero (so all pixels are included in calculation.
+
+    Args:
+        modes ([str]): Localization metrics to use (pointing_game, iou, wiosr)
     '''
-    def __init__(self):
+    def __init__(self, modes=['pointing_game']):
         self.explanations_used = 1 # Nr of attributions used by this evaluator
-        self.header = ['pointing_game'] # The scores returned by this evaluator
+        self.header = modes # The scores returned by this evaluator
+        self.modes = modes
+
+        all_modes = ['pointing_game', 'iou', 'wiosr']
+        for mode in modes:
+            if not mode in all_modes:
+                raise ValueError(
+                    f'All modes expected to be in {all_modes} but got {mode}')
 
     def __call__(
         self, target_segment, vals, masks=None, model_idxs=..., **kwargs
@@ -144,18 +175,40 @@ class LocalizationEvaluator():
             vals = np.squeeze(vals, axis=0)
         vals = vals.reshape(-1)
         target_segment = target_segment.reshape(-1)
-        return [np.mean((target_segment==model_idxs)[np.max(vals) == vals])]
+        salient_region = target_segment==model_idxs
 
-    def __str__(self): return 'LocalizationEvaluator()'
+        ret = []
+        for mode in self.modes:
+            if mode == 'pointing_game':
+                ret.append(
+                    np.mean(salient_region[np.max(vals) == vals])
+                )
+            elif mode == 'iou':
+                sum_sr = np.sum(salient_region)
+                predict = np.argpartition(vals, -sum_sr)[-sum_sr:]
+                intersect = np.sum(np.take(salient_region, predict))
+                ret.append(intersect/(sum_sr*2-intersect))
+            elif mode == 'wiosr':
+                norm_vals = vals-np.min(vals)
+                ret.append(np.sum(norm_vals[salient_region])/np.sum(norm_vals))
+        return ret
 
-    def title(self): return 'localization'
+    def __str__(self): return f'LocalizationEvaluator({self.modes})'
+
+    def title(self): return f'localization_' + '_'.join(self.header)
 
 
 class TargetDifferenceEvaluator():
     '''
-    Uses the given callable to calculate a list of similarity/distance scores
-    between the input explanations. The two input explanations are assumed to
-    come from different target classes.
+    Evaluates an attribution method by calculating similarity scores of two
+    attribution maps generated by the method for two different target classes.
+    The assumption is that different classes should have different explanations
+    and therefore have low similiarity. However, predictions of some classes
+    might be affected by the same regions of the image which would invalidate
+    the value of this type of evaluation. This can be counteracted by selecting
+    differing classes or classes with very different prediction scores which
+    should presumably not depend on the same features. The evaluator takes a
+    callable as input which does all the similarity/distance calculations.
 
     Args:
         metrics (callable): Takes two explanations and returns [distance]
@@ -181,6 +234,21 @@ class TargetDifferenceEvaluator():
 
 class InputDifferenceEvaluator():
     '''
+    Evaluates an attribution method by calculating similarity scores between the
+    attribution map generated by the method given the original input image and
+    a given number of versions of that image with increasing amounts of noise
+    added. The assumption is that as the image is destroyed the class prediction
+    should depend less on the specific regions which should reduce similarity.
+    Methods that produce the same explanations for an image and random noise
+    are presumed to not create explanations for the actual prediction.
+    Additionally, methods that produce very different explanations for similar
+    inputs are likely very sensitive to input noise which is not desirable.
+    Though this might instead indicate that the model is sensistive to noise.
+    The evaluator takes a callable as input which does all the
+    similarity/distance calculations. It also takes the maximum noise fraction
+    to add to the image and the number of step during which to add noise towards
+    the maximum.
+
     Args:
         metrics (callable): Takes two explanations and returns [distance]
         steps (int): Nr of steps to incrementally increase the input noise over
