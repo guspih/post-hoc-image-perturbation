@@ -8,8 +8,9 @@ from torchvision.transforms import ToTensor
 from PIL import Image
 import requests
 import zipfile
-import tarfile
 import csv
+import pathlib
+
 '''
 This file contains functions for loading (and if necessary downloading) the
 relevant datasets. Currently available datasets are STL-10, SVHN, ISBI12, MRD,
@@ -254,28 +255,26 @@ def bapps_collector(split='train', subsplit='all', **kwargs):
     Returns:
         torch.utils.data.Dataset: The given split of the BAPPS dataset
     '''
-    (root_folder/'BAPPS/train').mkdir(parents=True, exist_ok=True)
-    (root_folder/'BAPPS/val').mkdir(parents=True, exist_ok=True)
-    (root_folder/'BAPPS/jnd/val').mkdir(parents=True, exist_ok=True)
-    if (
-        len(os.listdir(root_folder/'BAPPS/train')) < 3
-        or len(os.listdir(root_folder/'BAPPS/val')) < 6
-        or len(os.listdir(root_folder/'BAPPS/jnd/val')) < 2
+    (root_folder/'BAPPS').mkdir(parents=True, exist_ok=True)
+    if not (
+        (root_folder/'BAPPS/train').exists() and
+        (root_folder/'BAPPS/val').exists() and
+        (root_folder/'BAPPS/jnd/val').exists()
     ):
         if 'download' in kwargs and not kwargs['download']:
             raise FileNotFoundError(
                 'Files are missing. Set \'download\' to True to automatically '
                 'download them')
         print('Downloading BAPPS dataset...')
-        dataset_link = 'https://people.eecs.berkeley.edu/~rich.zhang/projects/2018_perceptual/dataset'
-        dataset_parts = ['twoafc_train', 'twoafc_val', 'jnd']
-        for part in dataset_parts:
-            filename = root_folder/f'BAPPS/{part}.tar.gz'
-            if not os.path.isfile(filename):
-                download_raw_url(url=f'{dataset_link}/{part}.tar.gz',
-                                 save_path=filename)
-            with tarfile.TarFile(filename, 'r') as tar_ref:
-                tar_ref.extractall(root_folder/'BAPPS')
+        path = root_folder/'BAPPS'
+        kaggle_download(
+            'chaitanyakohli678/berkeley-adobe-perceptual-patch-similarity-bapps',
+            path, unzip=True
+        )
+        (path/'dataset/2afc/train').rename(path/'train')
+        (path/'dataset/2afc/val').rename(path/'val')
+        (path/'dataset/jnd').rename(path/'jnd')
+        (path/'dataset').rmdir()
     subsplits = os.listdir(root_folder/f'BAPPS/{split}')
     if subsplit == 'all':
         ret = []
@@ -284,8 +283,8 @@ def bapps_collector(split='train', subsplit='all', **kwargs):
             paths = [root_folder/f'BAPPS/{split}/{subsplit}/{d}' for d in dirs]
             ret.append(MultipleFolderDataset(
                 *paths, name=subsplit,
-                image_transform=kwargs.get('image_transform'))
-            )
+                image_transform=kwargs.get('image_transform')
+            ))
         return ConcatDataset(ret)
     elif subsplit in subsplits:
         dirs = os.listdir(root_folder/f'BAPPS/{split}/{subsplit}')
@@ -379,10 +378,13 @@ def download_raw_url(url, save_path, show=False, chunk_size=128, decode=False):
         save_path (str): File name to store data under
         show (bool): Whether to print what is being downloaded
         chunk_size (int): How large chunks of data to collect at a time
+        decode (bool): 
     '''
     if show:
         print(f'\rDownloading URL: {url}', end='')
     r = requests.get(url, stream=True)
+    if r.status_code != 200:
+        raise RuntimeError('Download was unsuccessful')
     if decode:
         r.raw.decode_content = True
     with open(save_path, 'wb') as fd:
@@ -429,7 +431,7 @@ def _kaggle_init():
 def kaggle_download(dataset, path, **kwargs):
     '''
     Downloads a given dataset from kaggle to a given folder.
-    
+
     Args:
         dataset (str): Dataset to download
         path (str): Path to folder of dataset
@@ -454,7 +456,7 @@ class MultipleFolderDataset(Dataset):
     def __init__(self, *args, name=None, image_transform=None):
         super().__init__()
         if len(args) < 1:
-            raise RuntimeError('Must be given at least one path')
+            raise ValueError('Must be given at least one path')
         self.name = name
         acceptable_endings = [
             'png', 'tif', 'tiff', 'jpg', 'jpeg', 'bmp', 'npy'
@@ -480,7 +482,6 @@ class MultipleFolderDataset(Dataset):
         self.image_transform = image_transform
         if self.image_transform is None:
             self.image_transform = ToTensor()
-
 
     def __getitem__(self, index):
         image_endings = ['png', 'tif', 'tiff', 'jpg', 'jpeg', 'bmp']
