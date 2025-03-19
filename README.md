@@ -35,7 +35,7 @@ In the future, this will be addressed.
 
 ## Citation
 
-The experiments in this repository has been used in the work [Smooth-edged Perturbations Improve Perturbation-based Image Explanations](https://arxiv.org/abs/2409.04116).
+The experiments in this repository has been used in the work [Segmentation and Smoothing Affect Explanation Quality More Than the Choice of Perturbation-based XAI Method for Image Explanations](https://arxiv.org/abs/2409.04116).
 If you use this repository in you research, please cite that work.
 The BibTex entry for the work can be found below:
 
