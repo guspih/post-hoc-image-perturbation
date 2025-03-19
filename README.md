@@ -1,13 +1,13 @@
 # Perturbation-based Post-hoc Explanations for Image Attribution
 
 This repository contains code for creating many combinations of image perturbation pipelines used to explain image prediction models.
-It contains many common implementations of the different parts of the image perturbation pipeline, including some which are domain agnostic.
+It contains many common implementations of the different parts of the image perturbation pipeline, including some that are domain-agnostic.
 Additionally, the repository contains code for automatically evaluating such pipelines using occlusion metrics.
 
 ## Requirements
 
-The code has been tested using `Python 3.11`, `PyTorch 2.3.0`, and `Torchvision 0.15.2`, but likely works with other versions as well.
-In addition the code uses the following Python packages:
+The code has been tested using `Python 3.11`, `PyTorch 2.3.0`, and `Torchvision 0.15.2`, but it likely works with other versions as well.
+In addition, the code uses the following Python packages:
 | Package          | Tested version | Required for                                  |
 | ---------------- | -------------- | --------------------------------------------- |
 | `numpy`          | `1.26.4`       | Everything                                    |
@@ -30,13 +30,13 @@ The experiments that this repository is used for can be automatically run using 
 Calling `python experiment.py --help` returns instructions for how to run experiments.
 
 
-The showcases and experiments are currently optimized to work on a fairly high-end computer, and may need to be altered to work on other devices, especially those with small RAM and VRAM.
+The showcases and experiments are currently optimized to work on a fairly high-end computer and may need to be altered to work on other devices, especially those with small RAM and VRAM.
 In the future, this will be addressed.
 
 ## Citation
 
-The experiments in this repository has been used in the work [Smooth-edged Perturbations Improve Perturbation-based Image Explanations](https://arxiv.org/abs/2409.04116).
-If you use this repository in you research, please cite that work.
+The experiments in this repository have been used in the work [Segmentation and Smoothing Affect Explanation Quality More Than the Choice of Perturbation-based XAI Method for Image Explanations](https://arxiv.org/abs/2409.04116).
+If you use this repository in your research, please cite that work.
 The BibTex entry for the work can be found below:
 
 ```bash
