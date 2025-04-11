@@ -194,6 +194,9 @@ def main():
             kw_dict[key] = value
 
     if args.run_rise_plus:
+        # If using the run_rise_plus flag, run the experiments used in the paper
+
+        # A dict indicating the parameters for approximating RISE experiments
         rise_plus_dict = {
             'evaluators': args.evaluations, 'net':None,
             'segmenter':'grid', 'n_seg':49, 'sampler':'random',
@@ -204,98 +207,49 @@ def main():
             'segmenter_kw':{'bilinear':True}, 'sampler_kw':{},
             'perturber_kw':{}, 'explainer_kw':{},
         }
+
+        # dicts indicating sample_size for each net if it is not provided
         net_dicts = [
             {'net':'alexnet', 'sample_size':4000},
             {'net':'vgg16', 'sample_size':4000},
             {'net':'resnet50', 'sample_size':8000}
         ]
 
-        experiment_dicts = [
-            # Test RISE setup with different samples sizes and samplers
+        # Make dicts indicating what parameters will change for each experiment
+        # Experiments with 0.02 fraction and varying sampler and samples_size
+        bilinear_grid_dicts = [
             {'fraction':0.02},
-            {'sample_size':None, 'fraction':0.02},
-            {'sample_size':400, 'fraction':0.02},
+            {'fraction':0.02, 'sample_size':None},
+            {'fraction':0.02, 'sample_size':400},
             {'fraction':0.02, 'sampler':'shap'},
-            {'fraction':0.02, 'sampler':'shap', 'sample_size':None},
-            {'fraction':0.02, 'sampler':'shap', 'sample_size':400},
+            {'fraction':0.02, 'sample_size':None, 'sampler':'shap'},
+            {'fraction':0.02, 'sample_size':400,  'sampler':'shap'},
             {
-                'fraction':0.02, 'sampler':'single_feature',
-                'sample_size':None, 'sampler_kw':{'add_none':True}
+                'fraction':0.02, 'sample_size':None, 'sampler':'single_feature',
+                'sampler_kw':{'add_none':True}
             },
             {
-                'fraction':0.02, 'sampler':'inverse_feature',
-                'sample_size':None, 'sampler_kw':{'add_none':True}
-            },
-            # Same experiments but use gaussian blur instead of bilinear
-            {'fraction':0.02, 'blur':True, 'segmenter_kw':{}},
-            {
-                'sample_size':None, 'fraction':0.02, 'blur':True,
-                'segmenter_kw':{}
-            },
-            {
-                'sample_size':400, 'fraction':0.02, 'blur':True,
-                'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'shap', 'blur':True,
-                'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'shap', 'sample_size':None,
-                'blur':True, 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'shap', 'sample_size':400,
-                'blur':True, 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'single_feature',
-                'sample_size':None, 'sampler_kw':{'add_none':True},
-                'blur':True, 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'inverse_feature',
-                'sample_size':None, 'sampler_kw':{'add_none':True},
-                'blur':True, 'segmenter_kw':{}
-            },
-            # Same experiments but use gaussian blur and slic
-            {
-                'fraction':0.02, 'blur':True, 'segmenter':'slic',
-                'segmenter_kw':{}
-            },
-            {
-                'sample_size':None, 'fraction':0.02, 'blur':True,
-                'segmenter':'slic', 'segmenter_kw':{}
-            },
-            {
-                'sample_size':400, 'fraction':0.02, 'blur':True,
-                'segmenter':'slic', 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'shap', 'blur':True,
-                'segmenter':'slic', 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'shap', 'sample_size':None,
-                'blur':True, 'segmenter':'slic', 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'shap', 'sample_size':400,
-                'blur':True, 'segmenter':'slic', 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'single_feature',
-                'sample_size':None, 'sampler_kw':{'add_none':True},
-                'blur':True, 'segmenter':'slic', 'segmenter_kw':{}
-            },
-            {
-                'fraction':0.02, 'sampler':'inverse_feature',
-                'sample_size':None, 'sampler_kw':{'add_none':True},
-                'blur':True, 'segmenter':'slic', 'segmenter_kw':{}
-            },
-            # Run the original experiment once with full validation set
-            {}
+                'fraction':0.02, 'sample_size':None,
+                'sampler':'inverse_feature', 'sampler_kw':{'add_none':True}
+            }
         ]
+        # Same experiments but use gaussian blur instead of bilinear
+        gaussian_grid_dicts = [
+            ex | {'blur':True, 'segmenter_kw':{}} for ex in bilinear_grid_dicts
+        ]
+        # Same experiments but use gaussian blur and slic
+        guassian_slic_dicts = [
+            ex | {'segmenter':'slic'} for ex in gaussian_grid_dicts
+        ]
+        # Run the original experiment once with full validation set
+        full_bilinear_grid_dicts = [{}]
+        # Gather all the different experiment dicts into one list
+        experiment_dicts = (
+            bilinear_grid_dicts + gaussian_grid_dicts + guassian_slic_dicts +
+            full_bilinear_grid_dicts
+        )
+        # Create full experiment dicts by editing the original experiment dict
+        # with all possible combinations of net_dicts and experiment_dicts
         runs = [
             rise_plus_dict | net_dict | run_dict for run_dict, net_dict in
             itertools.product(experiment_dicts, net_dicts)
@@ -308,6 +262,7 @@ def main():
         ]
         runs = [[d[x] for x in keys] for d in runs]
     else:
+        # Without the run_rise_plus flag, run all combinations of the arguments
         runs = itertools.product(
             [args.evaluations], args.nets, args.segmenters, args.n_segments,
             args.samplers, args.perturbers, args.sample_sizes, [args.softmax],
@@ -316,12 +271,13 @@ def main():
             [explainer_kw]
         )
 
-    # For each combination of net, segmenter, n_seg, perturber, and sample_size
+    # For each combination of arguments, prepare and run that experiments
     for (
         evaluations, net, segmenter, n_seg, sampler, perturber, sample_size,
         softmax, blur, explainers, attribution_types, fraction, segmenter_kw,
         sampler_kw, perturber_kw, explainer_kw
     ) in runs:
+        # TODO: Replace debug printing when no longer needed
         print(evaluations, net, segmenter, n_seg, sampler, perturber,
             sample_size, softmax, blur, explainers, attribution_types, fraction,
             segmenter_kw, sampler_kw, perturber_kw, explainer_kw
@@ -727,7 +683,8 @@ def run_evaluation(
         if verbose:
             print(
                 f'\rEvaluating on {fraction*100}% of {dataset_name} '
-                f'[{i+1}/{len(dataset_fraction)}] '
+                f'[{i+1}/{len(dataset_fraction)}] ' +
+                ('using the gpu ' if model.gpu else '') +
                 f'{datetime.now().strftime("%y-%m-%d_%Hh%M")}', end=''
             )
 
