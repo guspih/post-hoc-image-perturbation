@@ -399,8 +399,34 @@ class ExplainerAttributer():
             array: [X] The attribution scores of explainees to attributions
             array: [X,M] map of attribution score to feature combinations
         '''
-        explaination = self.explainer(Y, Z)
-        return(self.attribution_explainer(explaination[-2], explaination[-1]))
+        explanation = self.explainer(Y, Z)
+        return(self.attribution_explainer(explanation[-2], explanation[-1]))
+
+class OrderedAttributer():
+    '''
+    Wrapper that takes an attributer and then assigns each feature attribution
+    in even steps between 0 and 1 according to the ascending sorting of the
+    attributions by the wrapped attributer
+
+    Args:
+        explainer (callable): An attributer to explain the input data
+    '''
+    def __init__(self, explainer):
+        self.explainer = explainer
+
+    def __str__(self):
+        return f'OrderedAttributer({self.explainer})'
+
+    def __call__(self, Y, Z):
+        explanation = self.explainer(Y, Z)
+        sidx = np.argsort(explanation[-2])
+        idx = np.concatenate(
+            ([0],np.flatnonzero(np.diff(explanation[-2][sidx]))+1,
+            [explanation[-2].size])
+        )
+        o = np.repeat(idx[:-1],np.diff(idx))[sidx.argsort()]
+        o = o/np.max(o)
+        return o, explanation[-1]
 
 # Explainer utils
 def shap_kernel(Z):
