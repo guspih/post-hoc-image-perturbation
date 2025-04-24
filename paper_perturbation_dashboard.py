@@ -197,17 +197,17 @@ def update_output(
     # Create the explainers
     new_explainers = []
     if 'rise' in explainers:
-        new_explainers.append(OrderedAttributer(RISEAttributer()))
+        new_explainers.append(RISEAttributer())
     if 'ciu' in explainers:
-        new_explainers.append(OrderedAttributer(
+        new_explainers.append(
             OriginalCIUAttributer(inverse=sampler=='inverse_feature')
-        ))
+        )
     if 'lime' in explainers:
-        new_explainers.append(OrderedAttributer(LinearLIMEAttributer()))
+        new_explainers.append(LinearLIMEAttributer())
     if 'shap' in explainers:
-        new_explainers.append(OrderedAttributer(SHAPAttributer()))
+        new_explainers.append(SHAPAttributer())
     if 'pda' in explainers:
-        new_explainers.append(OrderedAttributer(PDAAttributer()))
+        new_explainers.append(PDAAttributer())
     new_explainers
 
     # Create the sampler
@@ -217,7 +217,7 @@ def update_output(
     elif sampler == 'random':
         sampler = RandomSampler(0.5)
     elif sampler == 'shap':
-        sampler = ShapSampler(ignore_warnings=True)
+        sampler = ShapSampler(ignore_warnings=True)#, inverse=True)
     elif sampler == 'inverse_feature':
         sampler = SingleFeatureSampler(inverse=True, add_none=True)
         sample_size = None # This sampler has a fixed sample size
@@ -261,7 +261,8 @@ def update_output(
 
     # Make a visualizer
     heatmap_visualizer = HeatmapVisualizer(
-        normalize=True, image_weight=0.7, invert_colormap=True
+        normalize=True, image_weight=0.7, invert_colormap=True,
+        color_by_rank=True
     )
 
     # Create a figure to display all the explanations and add the original image
