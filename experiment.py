@@ -283,7 +283,7 @@ def main():
             segmenter_kw, sampler_kw, perturber_kw, explainer_kw
         )
 
-        # Prepare the dataset
+        # Prepare the dataset depending on if its ImageNet or VOCsegmentation
         if args.dataset == 'imagenet':
             dataset_transform = v1.Compose([
                 v1.ToTensor(),
@@ -388,7 +388,10 @@ def main():
         elif sampler == 'random':
             sampler = RandomSampler(sampler_kw.get('p', 0.5))
         elif sampler == 'shap':
-            sampler = ShapSampler(sampler_kw.get('ignore_warnings', True))
+            sampler = ShapSampler(
+                inverse=sampler_kw.get('inverse', False),
+                ignore_warnings=sampler_kw.get('ignore_warnings', True)
+            )
         elif sampler == 'normal':
             sampler = SampleProbabilitySampler(
                 distribution='normal', **sampler_kw
@@ -447,7 +450,7 @@ def main():
         evaluators = []
         if 'auc' in evaluations:
             evaluators.append(ImageAUCEvaluator(
-                mode='srg', perturber=SingleColorPerturber(color='mean'),
+                mode='srg', perturber=SingleColorPerturber(),
                 normalize=True, steps=10
             ))
         if 'target_diff' in evaluations:
