@@ -91,10 +91,11 @@ class HeatmapVisualizer():
         image_weight (float): How visible should the image be under the heatmap
         colormap (cv2.ColormapTypes): The OpenCV colormap that the heatmap uses
         invert_colormap (bool): Whether to swap the direction of the colormap
+        color_by_rank (bool): If True, intensity corresponds to attribution rank
     '''
     def __init__(
             self, normalize=False, image_weight=0.5, colormap=None,
-            invert_colormap=False
+            invert_colormap=False, color_by_rank=False
         ):
         self.perturber = ReplaceImagePerturber(replace_images=None)
         self.normalize = normalize
@@ -105,6 +106,7 @@ class HeatmapVisualizer():
         self.colormap = colormap
         self.invert_colormap = invert_colormap
         self.applyColorMap = cv2.applyColorMap
+        self.color_by_rank = color_by_rank
 
     def __call__(self, vals, image, masks=None):
         '''
@@ -119,6 +121,16 @@ class HeatmapVisualizer():
             heatmap = vals
         else:
             heatmap = perturbation_masks(masks, vals.reshape((1,-1)))
+        if self.color_by_rank:
+            heatmap_shape = heatmap.shape
+            heatmap = heatmap.reshape(-1)
+            sidx = np.argsort(heatmap)
+            idx = np.concatenate(
+                ([0],np.flatnonzero(np.diff(heatmap[sidx]))+1,[heatmap.size])
+            )
+            heatmap = np.repeat(idx[:-1],np.diff(idx))[sidx.argsort()]
+            heatmap = heatmap/np.max(heatmap)
+            heatmap = heatmap.reshape(heatmap_shape)
         if len(heatmap.shape) == 3:
             heatmap = heatmap[0]
         if self.normalize:
@@ -137,7 +149,11 @@ class HeatmapVisualizer():
 class AUCVisualizer():
     '''
     Makes a matplotlib plot showcasing the AUC scores for provided curves.
+    Args:
+        show (bool): Whether to directly show() the plot
     '''
+    def __init__(self, show=True):
+        self.show = show
     def __call__(self, *curves):
         '''
         Args:
@@ -146,7 +162,7 @@ class AUCVisualizer():
         '''
         import matplotlib.pyplot as plt
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-        plt.figure()
+        fig = plt.figure()
         titles = []
         handles = []
         for i, curve in enumerate(curves):
@@ -163,4 +179,6 @@ class AUCVisualizer():
             handles.append(line)
         if len(titles) > 0:
             plt.legend(handles, titles)
-        plt.show(block=False)
+        if self.show:
+            plt.show(block=False)
+        return fig
