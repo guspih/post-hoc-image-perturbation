@@ -182,9 +182,9 @@ class ShapSampler():
         inverse (bool): Whether to order the many perturbations first instead
         ignore_warnings (bool): Ignores unbalanced sample_size warnings if True
     '''
-    def __init__(self, inverse=False, ignore_warning=False):
+    def __init__(self, inverse=False, ignore_warnings=False):
         self.inverse = inverse
-        self.ignore_warnings = ignore_warning
+        self.ignore_warnings = ignore_warnings
         self.deterministic = True
 
     def __str__(self):
