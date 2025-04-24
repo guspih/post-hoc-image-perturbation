@@ -188,7 +188,7 @@ class ShapSampler():
         self.deterministic = True
 
     def __str__(self):
-        return f'ShapSampler()'
+        return f'ShapSampler({self.inverse})'
 
     def __call__(self, M, sample_size=None):
         '''
