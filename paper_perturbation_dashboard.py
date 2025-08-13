@@ -85,10 +85,13 @@ app.layout = [
         id='image_nr', min=0, max=999, value=0, label='Image'
     ),
     dash.dcc.RadioItems(
+        id='color_by_rank', options=['yes', 'no'], value='yes'
+    ),
+    dash.dcc.RadioItems(
         id='net', options=['alexnet', 'vgg16', 'resnet50'], value='alexnet'
     ),
     dash.dcc.RadioItems(
-        id='segmenter_perturber', value='grid',
+        id='segmenter_perturber', value='grid_bilinear',
         options=['grid_bilinear', 'grid_gaussian', 'slic_gaussian']
     ),
     dash.dcc.RadioItems(
@@ -111,6 +114,7 @@ app.layout = [
     dash.Output(component_id='output', component_property='figure'),
     dash.Input(component_id='submit_button', component_property='n_clicks'),
     dash.State(component_id='image_nr', component_property='value'),
+    dash.State(component_id='color_by_rank', component_property='value'),
     dash.State(component_id='net', component_property='value'),
     dash.State(component_id='segmenter_perturber', component_property='value'),
     dash.State(component_id='sampler', component_property='value'),
@@ -118,7 +122,7 @@ app.layout = [
     dash.State(component_id='explainers', component_property='value')
 )
 def update_output(
-    n_clicks, image_nr, net, segmenter_perturber, sampler, sample_size,
+    n_clicks, image_nr, color_by_rank, net, segmenter_perturber, sampler, sample_size,
     explainers
 ):
     # Changeable parameters
@@ -262,7 +266,7 @@ def update_output(
     # Make a visualizer
     heatmap_visualizer = HeatmapVisualizer(
         normalize=True, image_weight=0.7, invert_colormap=True,
-        color_by_rank=True
+        color_by_rank=color_by_rank=='yes'
     )
 
     # Create a figure to display all the explanations and add the original image
