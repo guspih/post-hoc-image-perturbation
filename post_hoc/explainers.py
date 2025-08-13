@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import itertools
 
 # Attributers (Explainers that calculates attribution)
 class OriginalCIUAttributer():
@@ -113,91 +114,6 @@ class CIUAttributer():
         importance = importance/(np.max(Y)-np.min(Y)+1e-12)
         influence = importance*(utility-self.expected_util)
         return importance, utility, influence, 1-unique_Z
-
-class CIUPlusAttributer1():
-    '''
-    Calculates the CIU values for each feature by calculating the them for each
-    combination of features in in Z and distributing the excess importance of
-    combinations among their constituent pieces. The importance of combinations
-    is calucated using CIUAttributer.
-
-    Args:
-        expected_util (float/[float]]): Sets the baseline for influence>0
-        return_samples (array): [X,M] array indicating features for attribution
-    '''
-    def __init__(self, expected_util=0.5, return_samples=None):
-        self.expected_util = expected_util
-        self.return_samples = return_samples
-
-    def __str__(self):
-        return f'CIUPlusAttributer({self.expected_util},{self.return_samples})'
-
-    def __call__(self, Y, Z):
-        '''
-        Args:
-            Y (array): [N] array of all model values for the perturbed inputs
-            Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns:
-            array: [M] the contextual importance of each feature
-            array: [M] the contextual utility of each feature
-            array: [M] the influence (ci*(cu-E[cu])) of each feature
-            array: [M,M] map of attribution score to feature
-        '''
-        M = Z.shape[1]
-        indices = np.argsort(-np.sum(Z, axis=1))
-        Z = Z[indices]
-        Y = Y[indices]
-        if self.return_samples is None:
-            unique_Z = np.unique(Z, axis=0)
-        else:
-            unique_Z = self.return_samples
-        unique_Z = unique_Z[np.argsort(-np.sum(unique_Z, axis=1))]
-        true_y = Y[np.all(Z==1, axis=-1)][0]
-        min_y = np.full(unique_Z.shape[0], 10000.0)
-        max_y = np.full(unique_Z.shape[0], -10000.0)
-        for y, z0 in zip(Y,Z):
-            for i, z1 in enumerate(unique_Z):
-                if np.all(z1*z0 == z1): #TODO: Speedup by using sorted Z
-                    if min_y[i] > y: min_y[i] = y
-                    if max_y[i] < y: max_y[i] = y
-        excess_min = np.full(M, 10000.0)
-        excess_max = np.full(M, -10000.0)
-        combo_min = np.zeros(M)
-        combo_max = np.zeros(M)
-        new_min = min_y.copy()
-        new_max = max_y.copy()
-        current_z_sum = 1
-        for i, (mn, mx, z0) in enumerate(zip(min_y, max_y, unique_Z)):
-            new_mn, new_mx = new_min[i], new_max[i]
-            idxs = z0==0
-            z_sum = np.sum(idxs)
-            if z_sum == 0:
-                continue
-            if z_sum > current_z_sum:
-                current_z_sum = z_sum
-                combo_max += excess_max*(excess_max>-10000.0)
-                combo_min += excess_min*(excess_min<10000.0)
-                excess_max[excess_max>-10000.0] = 0.0
-                excess_min[excess_min<10000.0] = 0.0
-            excess_mx = new_mx/z_sum
-            excess_mn = new_mn/z_sum # TODO: Make min and max move to true_y
-            excess_max[idxs & (excess_max < excess_mx)] = excess_mx
-            excess_min[idxs & (excess_min > excess_mn)] = excess_mn
-            for j, z1 in enumerate(unique_Z):
-                z1_sum = M-np.sum(z1)
-                if z1_sum <= z_sum:
-                    continue
-                if not np.all(z0*z1 == z1):
-                    continue
-                new_max[j] = max(0, min(new_max[j], max_y[j]-mx))
-                new_min[j] = min(0, max(new_min[j], mn-min_y[j]))
-        combo_max += excess_max
-        combo_min += excess_min
-        importance = combo_max-combo_min
-        utility = (true_y - combo_min)/(importance+1e-12)
-        importance = importance/(np.max(Y)-np.min(Y)+1e-12)
-        influence = importance*(utility-self.expected_util)
-        return importance, utility, influence, np.eye(M)
 
 class SHAPAttributer():
     '''
@@ -451,3 +367,141 @@ def shap_kernel(Z):
     sqrt_pis[S_vals] = kernel_vals
     sqrt_pis = sqrt_pis[S]
     return sqrt_pis
+
+
+##### TEST CODE BELOW #####
+
+
+class CIUPlusAttributer1():
+    '''
+    Calculates the CIU values for each feature by calculating the them for each
+    combination of features in in Z and distributing the excess importance of
+    combinations among their constituent pieces. The importance of combinations
+    is calucated using CIUAttributer.
+
+    Args:
+        expected_util (float/[float]]): Sets the baseline for influence>0
+        return_samples (array): [X,M] array indicating features for attribution
+    '''
+    def __init__(self, expected_util=0.5, return_samples=None):
+        self.expected_util = expected_util
+        self.return_samples = return_samples
+
+    def __str__(self):
+        return f'CIUPlusAttributer({self.expected_util},{self.return_samples})'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            array: [M] the contextual importance of each feature
+            array: [M] the contextual utility of each feature
+            array: [M] the influence (ci*(cu-E[cu])) of each feature
+            array: [M,M] map of attribution score to feature
+        '''
+        M = Z.shape[1]
+        indices = np.argsort(-np.sum(Z, axis=1))
+        Z = Z[indices]
+        Y = Y[indices]
+        if self.return_samples is None:
+            unique_Z = np.unique(Z, axis=0)
+        else:
+            unique_Z = self.return_samples
+        unique_Z = unique_Z[np.argsort(-np.sum(unique_Z, axis=1))]
+        true_y = Y[np.all(Z==1, axis=-1)][0]
+        min_y = np.full(unique_Z.shape[0], 10000.0)
+        max_y = np.full(unique_Z.shape[0], -10000.0)
+        for y, z0 in zip(Y,Z):
+            for i, z1 in enumerate(unique_Z):
+                if np.all(z1*z0 == z1): #TODO: Speedup by using sorted Z
+                    if min_y[i] > y: min_y[i] = y
+                    if max_y[i] < y: max_y[i] = y
+        excess_min = np.full(M, 10000.0)
+        excess_max = np.full(M, -10000.0)
+        combo_min = np.zeros(M)
+        combo_max = np.zeros(M)
+        new_min = min_y.copy()
+        new_max = max_y.copy()
+        current_z_sum = 1
+        for i, (mn, mx, z0) in enumerate(zip(min_y, max_y, unique_Z)):
+            new_mn, new_mx = new_min[i], new_max[i]
+            idxs = z0==0
+            z_sum = np.sum(idxs)
+            if z_sum == 0:
+                continue
+            if z_sum > current_z_sum:
+                current_z_sum = z_sum
+                combo_max += excess_max*(excess_max>-10000.0)
+                combo_min += excess_min*(excess_min<10000.0)
+                excess_max[excess_max>-10000.0] = 0.0
+                excess_min[excess_min<10000.0] = 0.0
+            excess_mx = new_mx/z_sum
+            excess_mn = new_mn/z_sum # TODO: Make min and max move to true_y
+            excess_max[idxs & (excess_max < excess_mx)] = excess_mx
+            excess_min[idxs & (excess_min > excess_mn)] = excess_mn
+            for j, z1 in enumerate(unique_Z):
+                z1_sum = M-np.sum(z1)
+                if z1_sum <= z_sum:
+                    continue
+                if not np.all(z0*z1 == z1):
+                    continue
+                new_max[j] = max(0, min(new_max[j], max_y[j]-mx))
+                new_min[j] = min(0, max(new_min[j], mn-min_y[j]))
+        combo_max += excess_max
+        combo_min += excess_min
+        importance = combo_max-combo_min
+        utility = (true_y - combo_min)/(importance+1e-12)
+        importance = importance/(np.max(Y)-np.min(Y)+1e-12)
+        influence = importance*(utility-self.expected_util)
+        return importance, utility, influence, np.eye(M)
+
+
+class TestCombinationAttributer():
+    '''
+    Calculates a bunch of values for combinations of features to assess if there
+    is a good way to auomatically find features that group together.
+    '''
+
+def __init__(self):
+    self.storage = {}
+
+def __str__(self):
+    return f'TestCombinationAttributer()'
+
+def __call__(self, Y, Z):
+    self.storage = {}
+    for z, y in zip(Z, Y):
+        self.storage[tuple(z)] = Y
+
+    f = mono_influence(Y, Z)
+
+def mono_influence(self, Y, Z):
+    inv_Z = 1-Z
+    included = np.sum(Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
+    occluded = np.sum(inv_Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
+    occurance = np.sum(Z, axis=0)
+    nocurance = np.sum(inv_Z, axis=0)
+    return included/occurance, occluded/nocurance
+
+def combo_influence(self, Y, Z, power=2):
+    empty = np.zeros(Z.shape[1])
+    combos = itertools.combinations(range(Z.shape[1]), r=power)
+    included = dict([(combo, 0) for combo in combos])
+    occluded = dict([(combo, 0) for combo in combos])
+    occurance = dict([(combo, 0) for combo in combos])
+    nocurance = dict([(combo, 0) for combo in combos])
+    inv_Z = 1-Z
+    for z, y in zip(Z,Y):
+        for combo in combos:
+            if all(z[combo]):
+                included[combo] = included[combo] + y
+                occurance[combo] = occurance[combo] + 1
+            elif all(1-z[combo]):
+                occluded[combo] = occluded[combo] + y
+                nocurance[combo] = nocurance[combo] + 1
+    for combo in combos:
+        included[combo] = included[combo]/occurance[combo]
+        occluded[combo] = occluded[combo]/nocurance[combo]
+    return included, occluded
