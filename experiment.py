@@ -177,6 +177,10 @@ def main():
         help='Prevent printing by the evaluation'
     )
     parser.add_argument(
+        '--no_gpu', action='store_true',
+        help='Prevents the use of a GPU even if one is available'
+    )
+    parser.add_argument(
         '--run_rise_plus', action='store_true',
         help='Ignore (most) arguments to run predefined rise+ experiments'
     )
@@ -361,7 +365,7 @@ def main():
         ])
 
         # Wrap model and check if it can run on the GPU
-        gpu = torch.cuda.is_available()
+        gpu = torch.cuda.is_available() and not args.no_gpu
         model = TorchModelWrapper(
             net, transforms, gpu=gpu, softmax_out=softmax
         )
@@ -450,7 +454,7 @@ def main():
         evaluators = []
         if 'auc' in evaluations:
             evaluators.append(ImageAUCEvaluator(
-                mode='srg', perturber=SingleColorPerturber(),
+                mode='srg', perturber=SingleColorPerturber(color='mean'),
                 normalize=True, steps=10
             ))
         if 'target_diff' in evaluations:
