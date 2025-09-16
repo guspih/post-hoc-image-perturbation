@@ -457,6 +457,78 @@ class CIUPlusAttributer1():
         influence = importance*(utility-self.expected_util)
         return importance, utility, influence, np.eye(M)
 
+class SignificanceAttributer():
+    '''
+    Calculates the p-values for the distribution of y-values being greater/
+    lesser when the features (or feature coalitions) are included/occluded.
+
+    Args:
+        mode ('include','occlude','both'): What distribution to consider
+        power (int): What size of coalitions to consider (1= indvidual features)
+        other ('subset','all','inverse'): Which distributions to compare to
+    '''
+
+    def __init__(self, mode='include', other='subset', power=1):
+        from scipy.stats import ttest_ind
+        assert mode in ['include', 'occlude', 'both']
+        assert other in ['subset', 'all', 'inverse']
+        self.ttest_ind = ttest_ind
+        self.mode = mode
+        self.other = other
+        self.power = power
+
+    def __str__(self):
+        return f'SignificanceAttributer({self.mode},{self.other},{self.power})'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            array: [X] liklihoods that the coaltions are are greater than other
+            array: [X,M] map of attribution score to feature coaltions
+        '''
+        combos = itertools.combinations(range(Z.shape[1]), r=self.power)
+        combo_p = dict([(combo, 0) for combo in combos])
+
+        if self.other == 'subset':
+            others = itertools.combinations(range(Z.shape[1]), r=self.power-1)
+            others = dict(
+                [(subset, Y[np.all(Z[:,subset], axis=1)]) for subset in others]
+            )
+        elif self.others == 'all':
+            others = {(): Y}
+        elif self.others == 'inverse':
+            others = dict(
+                [(combo, Y[np.all(Z[:,combo]==0, axis=1)]) for combo in combos]
+            )
+
+        for combo in combo_p.keys():
+            combo_ys = Y[np.all(Z[:,combo], axis=1)]
+
+            if self.other == 'subset':
+                other_idxs = [
+                    tuple(x for j,x in enumerate(combo) if j!=i)
+                    for i in range(len(combo))
+                ]
+            elif self.other == 'all':
+                other_idxs = [()]
+            elif self.other_idxs == 'inverse':
+                other_idxs = [combo]
+
+            for other_idx in other_idxs:
+                other_ys = others[other_idx]
+                new_p = self.ttest_ind(
+                    combo_ys, other_ys, axis=0, alternative='greater'
+                ).pvalue
+                combo_p[combo] = 1-(1-combo_p[combo])*(1-new_p)
+
+        p_values = 1-np.array(list(combo_p.values()))
+        coalition_map = np.zeros((len(combo_p), Z.shape[1]))
+        for i, combo in enumerate(combo_p.keys()):
+            coalition_map[i, combo] = 1
+        return p_values, coalition_map
 
 class TestCombinationAttributer():
     '''
@@ -464,44 +536,164 @@ class TestCombinationAttributer():
     is a good way to auomatically find features that group together.
     '''
 
-def __init__(self):
-    self.storage = {}
+    def __init__(self):
+        self.storage = {}
 
-def __str__(self):
-    return f'TestCombinationAttributer()'
+    def __str__(self):
+        return f'TestCombinationAttributer(mono_significance)'
 
-def __call__(self, Y, Z):
-    self.storage = {}
-    for z, y in zip(Z, Y):
-        self.storage[tuple(z)] = Y
+    def __call__(self, Y, Z):
+        #self.storage = {}
+        #for z, y in zip(Z, Y):
+        #    self.storage[tuple(z)] = y
 
-    f = mono_influence(Y, Z)
+        #return self.significance_grouping(Y,Z,p_value=0.05), np.eye(Z.shape[1])
+        return self.mono_significance(Y, Z), np.eye(Z.shape[1])
 
-def mono_influence(self, Y, Z):
-    inv_Z = 1-Z
-    included = np.sum(Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
-    occluded = np.sum(inv_Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
-    occurance = np.sum(Z, axis=0)
-    nocurance = np.sum(inv_Z, axis=0)
-    return included/occurance, occluded/nocurance
+    def mono_influence(self, Y, Z):
+        inv_Z = 1-Z
+        included = np.sum(Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
+        occluded = np.sum(inv_Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1))), axis=0)
+        occurance = np.sum(Z, axis=0)
+        nocurance = np.sum(inv_Z, axis=0)
+        return included/occurance, occluded/nocurance
 
-def combo_influence(self, Y, Z, power=2):
-    empty = np.zeros(Z.shape[1])
-    combos = itertools.combinations(range(Z.shape[1]), r=power)
-    included = dict([(combo, 0) for combo in combos])
-    occluded = dict([(combo, 0) for combo in combos])
-    occurance = dict([(combo, 0) for combo in combos])
-    nocurance = dict([(combo, 0) for combo in combos])
-    inv_Z = 1-Z
-    for z, y in zip(Z,Y):
+    def combo_influence(self, Y, Z, power=2):
+        empty = np.zeros(Z.shape[1])
+        combos = itertools.combinations(range(Z.shape[1]), r=power)
+        included = dict([(combo, 0) for combo in combos])
+        occluded = dict([(combo, 0) for combo in combos])
+        occurance = dict([(combo, 0) for combo in combos])
+        nocurance = dict([(combo, 0) for combo in combos])
+        inv_Z = 1-Z
+        for z, y in zip(Z,Y):
+            for combo in combos:
+                if all(z[combo]):
+                    included[combo] = included[combo] + y
+                    occurance[combo] = occurance[combo] + 1
+                elif all(1-z[combo]):
+                    occluded[combo] = occluded[combo] + y
+                    nocurance[combo] = nocurance[combo] + 1
         for combo in combos:
-            if all(z[combo]):
-                included[combo] = included[combo] + y
-                occurance[combo] = occurance[combo] + 1
-            elif all(1-z[combo]):
-                occluded[combo] = occluded[combo] + y
-                nocurance[combo] = nocurance[combo] + 1
-    for combo in combos:
-        included[combo] = included[combo]/occurance[combo]
-        occluded[combo] = occluded[combo]/nocurance[combo]
-    return included, occluded
+            included[combo] = included[combo]/occurance[combo]
+            occluded[combo] = occluded[combo]/nocurance[combo]
+        return included, occluded
+
+    def mono_significance(self, Y, Z, p_value=0.005):
+        import scipy.stats
+        inv_Z = 1-Z
+        included = Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1)))
+        occluded = inv_Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1)))
+
+        included[Z==0] = np.nan
+        occluded[Z==1] = np.nan
+
+        pvalue = scipy.stats.ttest_ind(
+            included, occluded, axis=0, nan_policy='omit', alternative='greater'
+        ).pvalue
+        #print(pvalue)
+        is_significant = pvalue <= p_value
+
+        return -np.log10(pvalue)
+
+    def significance_grouping(self, Y, Z, p_value=0.01):
+        # Adding segments until no longer significant improvement
+        import scipy.stats
+        inv_Z = 1-Z
+        included = Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1)))
+        occluded = inv_Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1)))
+
+        singles = included.copy()
+        singles[Z==0] = np.nan
+        single_means = np.nanmean(singles, axis=0)
+        singles_order = np.argsort(single_means)[::-1]
+
+        significant_group = np.zeros(Z.shape[1])
+        test_group = np.zeros(Z.shape[1])
+        test_group[singles_order[0]] = 1
+        for i in range(Z.shape[1]-1):
+            significant_group[singles_order[i]] = 1
+            combo_ys = Y[np.all(Z[:, significant_group.astype(bool)], axis=1)]
+            test_group[singles_order[i+1]] = 1
+            next_ys = Y[np.all(Z[:, test_group.astype(bool)], axis=1)]
+            p = scipy.stats.ttest_ind(
+                next_ys, combo_ys, axis=0, nan_policy='omit',
+                alternative='greater'
+            ).pvalue
+            if p > p_value:
+                break
+
+        return significant_group
+
+
+    def combo_significance(self, Y, Z, power=2, p_value=0.01):
+        # combo vs. single
+        import scipy.stats
+        inv_Z = 1-Z
+        included = Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1)))
+        occluded = inv_Z*(Y.reshape(list(Y.shape)+[1]*(Z.ndim-1)))
+
+        singles = included.copy()
+        singles[Z==0] = np.nan
+
+        combos = itertools.combinations(range(Z.shape[1]), r=power)
+        combo_p = dict([(combo, 1) for combo in combos])
+        for combo in combo_p.keys():
+            combo_ys = Y[np.all(Z[:,combo], axis=1)]
+            pvalue = 0
+            for single in combo:
+                single_p = scipy.stats.ttest_ind(
+                        combo_ys, singles[:, single], axis=0, nan_policy='omit',
+                        alternative='greater'
+                    ).pvalue
+                print('!', single_p, pvalue)
+                pvalue = np.max((single_p, pvalue))
+            combo_p[combo] = pvalue
+
+        print(min(combo_p.values()))
+        center = np.argmax(self.mono_significance(Y, Z))
+        significant_group = np.full(Z.shape[1],0.1)
+        significant_group[center] = 1
+        for i in range(Z.shape[1]):
+            if i == center:
+                continue
+            key = (center, i) if i>center else (i, center)
+            #print(combo_p[key])
+            if combo_p[key] < p_value:
+                significant_group[i] = 1
+
+        return significant_group
+
+    def combo_signficance1(self, Y, Z, power=2):
+        #combo vs. singles-combo (probably bad if one component is insignificant)
+        combos = itertools.combinations(range(Z.shape[1]), r=power)
+        double_y = dict([(combo, 0) for combo in combos])
+        single_y = dict([(combo, 0) for combo in combos])
+        double_n = dict([(combo, 0) for combo in combos])
+        single_n = dict([(combo, 0) for combo in combos])
+        inv_Z = 1-Z
+        for z, y in zip(Z,Y):
+            for combo in combos:
+                if all(z[combo]):
+                    double_y[combo] = double_y[combo] + y
+                    double_n[combo] = double_n[combo] + 1
+                elif any(z[combo]):
+                    single_y[combo] = single_y[combo] + y
+                    single_n[combo] = single_n[combo] + 1
+        for combo in combos:
+            double_y[combo] = double_y[combo]/double_n[combo]
+            single_y[combo] = single_y[combo]/single_n[combo]
+        return double_y, single_y
+
+    def feature_support(self, Y, Z):
+        avg_included, avg_occluded = self.mono_influence(Y, Z)
+        top_z = np.argmax(avg_included-avg_occluded)
+        bottom_mask = Z[:,top_z] == 0
+        print(bottom_mask)
+        avg_included, avg_occluded2 = self.mono_influence(
+            Y[bottom_mask], Z[bottom_mask, :]
+        )
+        avg_included[top_z] = 1
+        avg_occluded[top_z] = 0
+
+        return avg_included > avg_occluded, np.eye(Z.shape[1])
