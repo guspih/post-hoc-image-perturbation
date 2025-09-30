@@ -288,6 +288,114 @@ class PDAAttributer():
             true_y = true_y if true_y_exist else 0
         return true_y-avg_relevance, np.eye(M)
 
+class SignificanceAttributer():
+    '''
+    Calculates the p-values for the distribution of y-values being greater/
+    lesser when the features (or feature coalitions) are included/occluded.
+
+    Args:
+        mode ('include','occlude','both'): What distribution to consider
+        power (int): What size of coalitions to consider (1= indvidual features)
+        other ('subset','all','inverse'): Which distributions to compare to
+    '''
+
+    def __init__(self, mode='include', other='subset', power=1):
+        from scipy.stats import ttest_ind
+        assert mode in ['include', 'occlude', 'both']
+        assert other in ['subset', 'all', 'inverse']
+        self.ttest_ind = ttest_ind
+        self.mode = mode
+        self.other = other
+        self.power = power
+
+    def __str__(self):
+        return f'SignificanceAttributer({self.mode},{self.other},{self.power})'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            array: [X] liklihoods that the coaltions are are greater than other
+            array: [X,M] map of attribution score to feature coaltions
+        '''
+        combos = itertools.combinations(range(Z.shape[1]), r=self.power)
+        combo_p = dict([(combo, 0) for combo in combos])
+
+        if self.other == 'subset':
+            others = itertools.combinations(range(Z.shape[1]), r=self.power-1)
+            others = dict(
+                [(subset, Y[np.all(Z[:,subset], axis=1)]) for subset in others]
+            )
+        elif self.others == 'all':
+            others = {(): Y}
+        elif self.others == 'inverse':
+            others = dict(
+                [(combo, Y[np.all(Z[:,combo]==0, axis=1)]) for combo in combos]
+            )
+
+        for combo in combo_p.keys():
+            combo_ys = Y[np.all(Z[:,combo], axis=1)]
+
+            if self.other == 'subset':
+                other_idxs = [
+                    tuple(x for j,x in enumerate(combo) if j!=i)
+                    for i in range(len(combo))
+                ]
+            elif self.other == 'all':
+                other_idxs = [()]
+            elif self.other_idxs == 'inverse':
+                other_idxs = [combo]
+
+            for other_idx in other_idxs:
+                other_ys = others[other_idx]
+                new_p = self.ttest_ind(
+                    combo_ys, other_ys, axis=0, alternative='greater'
+                ).pvalue
+                combo_p[combo] = 1-(1-combo_p[combo])*(1-new_p)
+
+        p_values = 1-np.array(list(combo_p.values()))
+        coalition_map = np.zeros((len(combo_p), Z.shape[1]))
+        for i, combo in enumerate(combo_p.keys()):
+            coalition_map[i, combo] = 1
+        return p_values, coalition_map
+
+class AUCAttributer():
+    '''
+    Calculates the order of influence of features by finding the greatest/lowest
+    prediction for each coalition size.
+
+    Args:
+        mode ('lif','mif','srg'): Whether t...
+    '''
+    def __init__(self, mode='mif'):
+        self.mode = mode
+
+    def __str__(self):
+        return f'AUCAttributer{self.mode}'
+
+    def __call__(self, Y, Z):
+        '''
+        Args:
+            Y (array): [N] array of all model values for the perturbed inputs
+            Z (array): [N,M] array indicating which features were perturbed (0)
+        Returns:
+            array: [M] For each feature, the rank in 
+            array: [M,M] map from attribution scores to features
+        '''
+        z_count = np.sum(Z, axis=1)
+        #ys_per_count = [Y[z_count==i] for i in range(Z.shape[1])]
+        #best_idxs = [
+        #    False if len(ys)==0 else np.argmax(ys) for ys in ys_per_count
+        #]
+        best_idxs = [np.argmax(Y[z_count==i]) for i in range(Z.shape[1])]
+        best_zs = Z[best_idxs]
+
+        ranks = np.sum(best_zs, axis=0)
+
+        return ranks, np.eye(Z.shape[1])
+
 class ExplainerAttributer():
     '''
     Wrapper that uses one attributer to attribute the influence values of
@@ -457,78 +565,7 @@ class CIUPlusAttributer1():
         influence = importance*(utility-self.expected_util)
         return importance, utility, influence, np.eye(M)
 
-class SignificanceAttributer():
-    '''
-    Calculates the p-values for the distribution of y-values being greater/
-    lesser when the features (or feature coalitions) are included/occluded.
 
-    Args:
-        mode ('include','occlude','both'): What distribution to consider
-        power (int): What size of coalitions to consider (1= indvidual features)
-        other ('subset','all','inverse'): Which distributions to compare to
-    '''
-
-    def __init__(self, mode='include', other='subset', power=1):
-        from scipy.stats import ttest_ind
-        assert mode in ['include', 'occlude', 'both']
-        assert other in ['subset', 'all', 'inverse']
-        self.ttest_ind = ttest_ind
-        self.mode = mode
-        self.other = other
-        self.power = power
-
-    def __str__(self):
-        return f'SignificanceAttributer({self.mode},{self.other},{self.power})'
-
-    def __call__(self, Y, Z):
-        '''
-        Args:
-            Y (array): [N] array of all model values for the perturbed inputs
-            Z (array): [N,M] array indicating which features were perturbed (0)
-        Returns:
-            array: [X] liklihoods that the coaltions are are greater than other
-            array: [X,M] map of attribution score to feature coaltions
-        '''
-        combos = itertools.combinations(range(Z.shape[1]), r=self.power)
-        combo_p = dict([(combo, 0) for combo in combos])
-
-        if self.other == 'subset':
-            others = itertools.combinations(range(Z.shape[1]), r=self.power-1)
-            others = dict(
-                [(subset, Y[np.all(Z[:,subset], axis=1)]) for subset in others]
-            )
-        elif self.others == 'all':
-            others = {(): Y}
-        elif self.others == 'inverse':
-            others = dict(
-                [(combo, Y[np.all(Z[:,combo]==0, axis=1)]) for combo in combos]
-            )
-
-        for combo in combo_p.keys():
-            combo_ys = Y[np.all(Z[:,combo], axis=1)]
-
-            if self.other == 'subset':
-                other_idxs = [
-                    tuple(x for j,x in enumerate(combo) if j!=i)
-                    for i in range(len(combo))
-                ]
-            elif self.other == 'all':
-                other_idxs = [()]
-            elif self.other_idxs == 'inverse':
-                other_idxs = [combo]
-
-            for other_idx in other_idxs:
-                other_ys = others[other_idx]
-                new_p = self.ttest_ind(
-                    combo_ys, other_ys, axis=0, alternative='greater'
-                ).pvalue
-                combo_p[combo] = 1-(1-combo_p[combo])*(1-new_p)
-
-        p_values = 1-np.array(list(combo_p.values()))
-        coalition_map = np.zeros((len(combo_p), Z.shape[1]))
-        for i, combo in enumerate(combo_p.keys()):
-            coalition_map[i, combo] = 1
-        return p_values, coalition_map
 
 class TestCombinationAttributer():
     '''
