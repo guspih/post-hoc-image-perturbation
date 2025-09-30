@@ -1,7 +1,12 @@
 import numpy as np
 
 from .image_perturbers import SingleColorPerturber
-from .image_segmenters import perturbation_masks
+from .image_segmenters import perturbation_masks, GridSegmenter
+from .samplers import ShapSampler, SizeWrapperSampler
+from .explainers import SignificanceAttributer
+from .connectors import (
+    SegmentationPredictionPipeline, SegmentationAttribuitionPipeline
+)
 
 #Evaluators
 class ImageAUCEvaluator():
@@ -163,7 +168,7 @@ class LocalizationEvaluator():
     ):
         '''
         Args:
-            hit_mask (array): [H,W] array of true segmentations of the image
+            target_segment (array): [H,W] array of ground truth segmentation
             vals (array): Array of attribution scores for each image feature
             masks (array): [S,H,W] array of segment masks (None=vals per pixel)
         Returns:
@@ -196,6 +201,124 @@ class LocalizationEvaluator():
     def __str__(self): return f'LocalizationEvaluator({self.modes})'
 
     def title(self): return f'localization_' + '_'.join(self.header)
+
+
+class ExhaustiveComboEvaluator():
+    '''
+    Evaluates attributions to different combinations by comparing the order of
+    those attributions to the order of influence, measured by a given metric,
+    of those combinations when all permutation (to a limit) are considered.
+
+    Args:
+        metrics (callable): Takes two explanations and returns [distance]
+        pipeline (str/callable): Returns model predictions per image permutation
+        explainers (str/callable): Returns attributions per feature
+        sample_size (int/callable): Nr of samples or callable returning the same
+    '''
+    # Default parameters for pipeline
+    def all_sizer(M, sample_size): return 2**M
+    DEFAULT_SEGMENTER = GridSegmenter(4, 4, bilinear=False)
+    DEFAULT_SAMPLER = SizeWrapperSampler(
+        sampler = ShapSampler(no_switch=True, random=False),
+        sizer = all_sizer
+    )
+    DEFAULT_PERTURBER = SingleColorPerturber(color='mean')
+    DEFAULT_BATCH_SIZE = 128
+    DEFAULT_ATTRIBUTER = SignificanceAttributer()
+
+    def __init__(
+        self, metrics, pipeline='default', explainers='default',
+        sample_size=all_sizer
+    ):
+        #
+        self.explanations_used = 1 # Nr of attributions used by this evaluator
+        self.header = metrics.header # The scores returned by this evaluator
+
+        # Variables defining the evaluator
+        self.metrics = metrics
+        self.pipeline = pipeline
+        if pipeline == 'default':
+            self.pipeline = SegmentationPredictionPipeline(
+                segmenter=ExhaustiveComboEvaluator.DEFAULT_SEGMENTER,
+                sampler=ExhaustiveComboEvaluator.DEFAULT_SAMPLER,
+                perturber=ExhaustiveComboEvaluator.DEFAULT_PERTURBER,
+                batch_size=ExhaustiveComboEvaluator.DEFAULT_BATCH_SIZE
+            )
+        self.explainers = explainers
+        if explainers == 'default':
+            self.explainers = [ExhaustiveComboEvaluator.DEFAULT_ATTRIBUTER]
+        self.sample_size = sample_size
+
+        # Variables to hold information between calls
+        self.explanations = []
+        self.current_explained = []
+
+    def __str__(self):
+        content = (
+            f'{self.metrics}.{self.pipeline},{self.explainers},'
+            f'{self.sample_size}'
+        )
+        return f'ExhaustiveComboEvaluator({content})'
+
+    def title(self): return 'exhaustive_combo_' + '_'.join(self.header)
+
+    def __call__(
+        self, image, model, vals, pipeline, attribution, explainer,
+        model_idxs=..., **kwargs
+    ):
+        '''
+        Args:
+            vals (array): Array of attribution scores for each image feature
+            masks (array): [S,H,W] array of segment masks (None=vals per pixel)
+        '''
+        is_current = all([np.all(a==b) for a, b in zip(self.current_explained, [
+            image, model, pipeline, model_idxs
+        ])])
+        if (
+            len(self.current_explained) == 0 or not is_current
+        ):
+            self.current_explained = [
+                image, model, pipeline, model_idxs
+            ]
+            self.explanations = []
+        
+            # If the evaluation should use the same pipeline, use it
+            if self.pipeline == 'same':
+                use_pipeline = pipeline.prediction_pipeline
+            else:
+                use_pipeline = self.pipeline
+
+            #If the sample_size is callable, use it to calculate the sample size
+            if callable(self.sample_size):
+                nr_segments = use_pipeline.segmenter(image)[1].shape[0]
+                use_sample_size = self.sample_size(
+                    M=nr_segments, sample_size=None
+                )
+            else:
+                use_sample_size = self.sample_size
+
+            # If the explainers should be the same, use them
+            if self.explainers == 'same':
+                use_explainers = pipeline.explainers
+            else:
+                use_explainers = self.explainers
+
+            attribution_pipeline = SegmentationAttribuitionPipeline(
+                None, None, None, use_explainers, pipeline.explanans,
+                batch_size=pipeline.batchsize,
+            )
+            attribution_pipeline.prediction_pipeline = use_pipeline
+
+            self.explanations = attribution_pipeline(
+                image, model, use_sample_size, output_idxs=model_idxs
+            )
+
+        use_map = self.explanations[
+            attribution_pipeline.explanans.index(attribution)
+        ]
+        use_map = use_map[attribution_pipeline.explainers.index(explainer)][0]
+
+        return self.metrics(vals, use_map)
 
 
 class TargetDifferenceEvaluator():
