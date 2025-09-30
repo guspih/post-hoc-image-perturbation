@@ -175,20 +175,32 @@ class ShapSampler():
     '''
     Creates an array of samples indicating which features to perturb (0) and
     which to include (1) of a given size. Will first create all samples with all
-    values the same, then all with a single feature included/perturbed, then all
-    with two feature included/perturbed, and so on.
+    features included/perturbed, then all with a single feature included/
+    perturbed, then all with two feature included/perturbed, and so on. If
+    inverse is set, the sampler will create all permutations of the given number
+    of features perturbed before perturbed. If no_switch is set, the sampler
+    will not switch between included and perturbed and will only create all
+    permutations of the given number of features included (or perturbed if
+    inverse is set).
 
     Args:
-        inverse (bool): Whether to order the many perturbations first instead
+        inverse (bool): Whether to start with perturbing instead of including
+        no_switch (bool): Whether to not switch between including/perturbing
+        random (bool): Whether to shuffle the order for each feature group size
         ignore_warnings (bool): Ignores unbalanced sample_size warnings if True
     '''
-    def __init__(self, inverse=False, ignore_warnings=False):
+    def __init__(
+        self, inverse=False, no_switch=False, random=False,
+        ignore_warnings=False
+    ):
         self.inverse = inverse
+        self.no_switch = no_switch
+        self.random = random
         self.ignore_warnings = ignore_warnings
-        self.deterministic = True
+        self.deterministic = not self.random
 
     def __str__(self):
-        return f'ShapSampler({self.inverse})'
+        return f'ShapSampler({self.inverse},{self.no_switch},{self.random})'
 
     def __call__(self, M, sample_size=None):
         '''
@@ -218,11 +230,14 @@ class ShapSampler():
         i=0 # Indicates which sample to write to
         l=0 # Only used to give warning messages
         for r in range(M+1):
-            r = r//2 if r%2==0 else M-((r-1)//2)
+            if not self.no_switch:
+                r = r//2 if r%2==0 else M-((r-1)//2)
         #TODO: Figure out how to handle 0 and M features
         #for r in range(2,M+1):
         #    r = r//2 if r%2==0 else M-((r-1)//2)
             comb = itertools.combinations(range(M), r=r)
+            if self.random:
+                np.random.shuffle(comb)
             for idx in comb:
                 if i == sample_size:
                     if not self.ignore_warnings:
@@ -239,6 +254,7 @@ class ShapSampler():
                 break
             l = i
         return samples
+
 
 class MultiSampler():
     '''
@@ -369,3 +385,32 @@ class MultiplyWrapperSampler():
             none = np.ones((len(none_idxs), samples.shape[1]))
             samples = np.concatenate((samples, none), axis=0)
         return samples
+
+class SizeWrapperSampler():
+    '''
+    Creates an array of samples indicating which features to perturb (0) and
+    which to include (1) of a given size. Wraps another sampler allowing to
+    specify unique deafault sample sizes or automatically calculating default
+    samples sizes based on the number of features (M) and sample_size.
+
+    Args:
+        sampler (callable): Returns [N,M] samples indicating features to perturb
+        sizer (callable): Takes M and sample_size and returns sample size (N)
+    '''
+    def __init__(self, sampler, sizer):
+        self.sampler = sampler
+        self.sizer = sizer
+
+    def __str__(self):
+        return f'SizeWrapperSampler({self.sampler},{self.sizer})'
+
+    def __call__(self, M, sample_size):
+        '''
+        Args:
+            M (int): Nr of features in each sample that can be perturbed
+            sample_size (int): Nr of samples to send to sizer
+        Returns:
+            array: [N,M] index of the features to perturb per sample
+        '''
+        new_sample_size = self.sizer(M=M, sample_size=sample_size)
+        return self.sampler(M, new_sample_size)
