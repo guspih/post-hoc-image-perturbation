@@ -25,6 +25,13 @@ class SegmentationPredictionPipeline():
         self.samples = None
         self.nr_model_calls = None
 
+    def __str__(self):
+        content = (
+            f'{self.segmenter},{self.sampler},{self.perturber},'
+            f'{self.batch_size}'
+        )
+        return f'SegmentationPredictionPipeline({content})'
+
     def __call__(
         self, image, model, sample_size=None, samples=None, output_idxs=...
     ):
@@ -112,6 +119,7 @@ class SegmentationAttribuitionPipeline():
 
         # Variables to hold information between calls
         self.ys = None
+        self.explanations = None # Latest explanations
         self.errors = [] # List of all caught explainer errors (if prune=True)
 
     def __getattr__(self, attr):
@@ -164,6 +172,7 @@ class SegmentationAttribuitionPipeline():
                 [explainer(y, perturbed_samples) for y in self.ys.T]
                 for explainer in self.explainers
             ]
+        self.explanations = ret['basic']
         if 'segment_map' in self.explanans:
             ret['segment_map'] = [[perturbation_masks(
                     self.prediction_pipeline.masks,
