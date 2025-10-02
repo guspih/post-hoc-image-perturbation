@@ -281,7 +281,7 @@ class ExhaustiveComboEvaluator():
                 image, model, pipeline, model_idxs
             ]
             self.explanations = []
-        
+
             # If the evaluation should use the same pipeline, use it
             if self.pipeline == 'same':
                 use_pipeline = pipeline.prediction_pipeline
@@ -446,13 +446,14 @@ class AttributionSimilarityEvaluator():
     Calculates the similarity of two attributions according to some given
     metrics. Can be used to evaluate if attributions are different when
     explaining other outputs, different models, slightly perturbed inputs, etc.
-    Available metrics are "l1" and "l2" norms, "cosine" distance, "ssim", and
-    any function passed that takes two inputs and returns a similarity score.
-    The attributions can be normalized to give more comparable scores, in this
-    case the normalization parameters are drawn from the first attribution and
-    applied to both attributions. Available normalizations are "none" for no
-    changes to the attribution, "unit" for brining the first attribution
-    into the range of 0 to 1, and "standard" to set mean to 0 and 
+    Available metrics are "l1" and "l2" norms, "cosine" distance, "ssim",
+    "pearson" and "spearman" correlations, and any function passed that takes
+    two inputs and returns a similarity score. The attributions can be
+    normalized to give more comparable scores, in this case the normalization
+    parameters are drawn from the first attribution and applied to both
+    attributions. Available normalizations are "none" for no changes to the
+    attribution, "unit" for brining the first attribution into the range of 0 to
+    1, and "standard" to set mean to 0 and standard deviation to 1.
 
     Args:
         metrics [str]: What similarity metrics to use and return
@@ -461,10 +462,12 @@ class AttributionSimilarityEvaluator():
     def __init__(self, metrics, normalize='none'):
         if len(metrics) == 0:
             raise ValueError('metrics cannot be empty')
+        self.allowed_metrics = ['l1','l2','cosine','ssim','pearson','spearman']
+        self.allowed_normalizations = ['none','unit','standard']
         if not normalize in ['none', 'unit', 'standard']:
             raise ValueError(
-                f'normalize has to be one of "none", "unit", or "standard" but '
-                f'got {normalize}'
+                f'normalize has to be one of '
+                f'{", ".join(self.allowed_normalizations)}, but got {normalize}'
             )
 
         self.header = [] # Names of the scores
@@ -489,10 +492,14 @@ class AttributionSimilarityEvaluator():
                             max(x1.max(),x2.max()) - min(x1.min(),x2.min())
                         ))
                     self.metrics.append(ssim)
+                elif metric == 'pearson':
+                    self.metrics.append(self.pearson)
+                elif metric == 'spearman':
+                    self.metrics.append(self.spearman)
                 else:
                     raise ValueError(
-                        f'metrics content must be callable or one of "l1", '
-                        f'"l2", "cosine", "ssim"; got {metric}'
+                        f'metrics content must be callable or one of '
+                        f'{", ".join(self.allowed_metrics)}, but got {metric}'
                     )
         self.normalize = normalize
 
@@ -503,6 +510,16 @@ class AttributionSimilarityEvaluator():
     def cosine(self, x1, x2):
         x1, x2 = x1.flatten(), x2.flatten()
         return np.dot(x1,x2) / (np.linalg.norm(x1)*np.linalg.norm(x2))
+
+    def pearson(self, x1, x2):
+        x1, x2 = x1.flatten(), x2.flatten()
+        return np.corrcoef(x1, x2)[0][1]
+
+    def spearman(self, x1, x2):
+        x1, x2 = x1.flatten(), x2.flatten()
+        x1_ranks = x1.argsort().argsort()
+        x2_ranks = x2.argsort().argsort()
+        return self.pearson(x1_ranks, x2_ranks)
 
     def __str__(self):
         return f'AttributionSimilarityEvaluator({self.header},{self.normalize})'
