@@ -89,17 +89,19 @@ class HeatmapVisualizer():
     Args:
         normalize (bool): Whether to normalize attributions in range [0,1]
         image_weight (float): How visible should the image be under the heatmap
+        grayscale (book): Whether to grayscale the image to make the map clearer
         colormap (cv2.ColormapTypes): The OpenCV colormap that the heatmap uses
         invert_colormap (bool): Whether to swap the direction of the colormap
         color_by_rank (bool): If True, intensity corresponds to attribution rank
     '''
     def __init__(
-            self, normalize=False, image_weight=0.5, colormap=None,
-            invert_colormap=False, color_by_rank=False
+            self, normalize=False, image_weight=0.5, grayscale=True,
+            colormap=None, invert_colormap=False, color_by_rank=False
         ):
         self.perturber = ReplaceImagePerturber(replace_images=None)
         self.normalize = normalize
         self.image_weight = image_weight
+        self.grayscale = grayscale
         import cv2
         if colormap is None:
             colormap = cv2.COLORMAP_JET
@@ -140,6 +142,10 @@ class HeatmapVisualizer():
             heatmap = 1-heatmap
         heatmap = (heatmap*255).astype(np.uint8)
         heatmap = self.applyColorMap(heatmap, colormap=self.colormap)
+        if self.grayscale:
+            image = np.repeat(np.reshape(
+                np.dot(image, [0.299, 0.587, 0.114]),image.shape[:-1]+(1,)
+            ), 3, axis=-1)
         perturbed_image = self.perturber(
             image, np.full(image.shape[:1], self.image_weight), None, masks,
             replace_images=(heatmap/255).astype(np.float32)
