@@ -131,6 +131,7 @@ class ImageAUCEvaluator():
             scores.append(scores[0]-scores[1])
         return scores, curves
 
+
 class LocalizationEvaluator():
     '''
     Evaluates an attribution map using localization metrics by comparing it to a
@@ -453,6 +454,100 @@ class InputDifferenceEvaluator():
             map = maps[pipeline.explainers.index(explainer)][0]
             ret = ret + (self.metrics(vals[0], map[0]))
         return ret
+
+
+class OutputAttributionCorrelationEvaluator():
+    '''
+    Evanluate an attribution method by calculating the Spearman correlation
+    between the difference in output and difference in attribution map for an
+    explainer when increasing amounts of noise is added tot he original input.
+    The assumption is that if an input change has larger impact on the output it
+    should also have a larger imapct on the explanation. This is a type of
+    combined robustness and sensistivity metric, where the explanations are
+    expected to remain the same under changes that don't matter and to adapt to
+    changes that do matter. The difference in output is measured as the the
+    absolute difference and the difference in attribution is measured using
+    similarity. The evaluator takes a callable as input which does all the
+    similarity/distance calculations. It also takes the maximum noise fraction
+    to add to the image and the number of step during which to add noise towards
+    the maximum.
+
+    Args:
+        metrics (callable): Takes two explanations and returns [distance]
+        noise_max (float): The maximum fraction of noise added to the image
+    '''
+    def __init__(self, metrics, steps=1, noise_max=0.01):
+        self.explanations_used = 1 # Nr of attributions used by this evaluator
+        self.metrics = metrics
+        self.steps = steps
+        self.noise_max = noise_max
+        self.noise_levels = np.linspace(0, self.noise_max, self.steps+1)[1:]
+        self.header = [metric+'_corr' for metric in metrics.header]
+
+        # Variables to hold information between calls
+        self.explanations = []
+        self.ys = []
+        self.current_explained = []
+
+    def __str__(self):
+        return ( 
+            f'OutputAttributionCorrelationEvaluator({self.metrics},{self.steps}'
+            f',{self.noise_max})'
+        )
+
+    def title(self):
+        return 'output_attribution_corr_' + '_'.join(self.metrics.header)
+
+    def spearman(self, x1, x2):
+        x1, x2 = x1.flatten(), x2.flatten()
+        x1_ranks = x1.argsort().argsort()
+        x2_ranks = x2.argsort().argsort()
+        return np.corrcoef(x1_ranks, x2_ranks)[0][1]
+
+    def __call__(
+        self, image, model, vals, pipeline, sample_size, attribution, explainer,
+        model_idxs, output, **kwargs
+    ):
+        is_current = all([np.all(a==b) for a, b in zip(self.current_explained, [
+            image, model, pipeline, sample_size, model_idxs
+        ])])
+        if (
+            len(self.current_explained) == 0 or not is_current
+        ):
+            self.current_explained = [
+                image, model, pipeline, sample_size, model_idxs
+            ]
+            self.explanations = []
+            self.ys = []
+
+        if len(self.explanations) == 0:
+            noise = np.random.rand(*image.shape)
+            for noise_level in self.noise_levels:
+                noise_image = (noise-image)*noise_level + image
+                self.explanations.append(pipeline(
+                    noise_image, model, sample_size=sample_size,
+                    output_idxs=model_idxs
+                ))
+                self.ys.append(model(noise_image)[0,model_idxs])
+
+        explanation_diffs = [[] for _ in self.header]
+        y_diffs = []
+        for noise_level, y, (segment_maps, pixel_maps) in zip(
+            self.noise_levels, self.ys, self.explanations
+        ):
+            maps = segment_maps if attribution == 'segments' else pixel_maps
+            map = maps[pipeline.explainers.index(explainer)][0]
+            [
+                explanation_diffs[i].append(diff)
+                for i, diff in enumerate(self.metrics(vals[0], map[0]))
+            ]
+            y_diffs.append(
+                np.abs(output[model_idxs]-y)
+            )
+        return [
+            self.spearman(np.array(diffs), np.array(y_diffs))
+            for diffs in explanation_diffs
+        ]
 
 
 class AttributionSimilarityEvaluator():
