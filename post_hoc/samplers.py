@@ -402,7 +402,7 @@ class SizeWrapperSampler():
         self.sizer = sizer
 
     def __str__(self):
-        return f'SizeWrapperSampler({self.sampler},{self.sizer})'
+        return f'SizeWrapperSampler({self.sampler},{self.sizer.__name__})'
 
     def __call__(self, M, sample_size):
         '''
