@@ -40,11 +40,11 @@ If you use this repository in your research, please cite that work.
 The BibTex entry for the work can be found below:
 
 ```bash
-@article{pihlgren2024segmentation,
-    title={Segmentation and Smoothing Affect Explanation Quality More Than the Choice of Perturbation-based XAI Method for Image Explanations},
+@inproceeding{pihlgren2025segmentation,
     author={Gustav Grund Pihlgren and Kary Främling},
-    doi = {10.48550/arXiv.2409.04116},
-    journal = {arXiv preprint},
-    year={2024}
+    booktitle={2025 International Joint Conference on Neural Networks (IJCNN)},
+    title={Segmentation and Smoothing Affect Explanation Quality More Than the Choice of Perturbation-based XAI Method for Image Explanations},
+    year={2025},
+    doi={10.1109/IJCNN64981.2025.11228842}
 }
 ```
