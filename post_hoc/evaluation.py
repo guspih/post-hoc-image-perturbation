@@ -230,10 +230,6 @@ class ExhaustiveComboEvaluator():
         self, metrics, pipeline='default', explainers='default',
         sample_size=all_sizer
     ):
-        #
-        self.explanations_used = 1 # Nr of attributions used by this evaluator
-        self.header = metrics.header # The scores returned by this evaluator
-
         # Variables defining the evaluator
         self.metrics = metrics
         self.pipeline = pipeline
@@ -252,6 +248,17 @@ class ExhaustiveComboEvaluator():
         # Variables to hold information between calls
         self.explanations = []
         self.current_explained = []
+        self.current_pipeline = None
+
+        # Variables used in automated evaluation
+        self.explanations_used = 1 # Nr of attributions used by this evaluator
+        if explainers == 'same': # The scores returned by this evaluator
+            self.header = self.metrics.header
+        else:
+            self.header = [
+                f'ex{i}_'+metric for i in range(len(explainers))
+                for metric in metrics.header
+            ]
 
     def __str__(self):
         content = (
@@ -303,22 +310,29 @@ class ExhaustiveComboEvaluator():
             else:
                 use_explainers = self.explainers
 
-            attribution_pipeline = SegmentationAttribuitionPipeline(
+            self.current_pipeline = SegmentationAttribuitionPipeline(
                 None, None, None, use_explainers, pipeline.explanans,
-                batch_size=pipeline.batchsize,
+                batch_size=pipeline.batch_size,
             )
-            attribution_pipeline.prediction_pipeline = use_pipeline
+            self.current_pipeline.prediction_pipeline = use_pipeline
 
-            self.explanations = attribution_pipeline(
+            self.explanations = self.current_pipeline(
                 image, model, use_sample_size, output_idxs=model_idxs
             )
 
         use_map = self.explanations[
-            attribution_pipeline.explanans.index(attribution)
+            self.current_pipeline.explanans.index(attribution)
         ]
-        use_map = use_map[attribution_pipeline.explainers.index(explainer)][0]
+        if self.explainers == 'same':
+            ret = self.metrics(vals, use_map[
+                self.current_pipeline.explainers.index(explainer)
+            ][0])
+        else:
+            ret = []
+            for explainer_map in use_map:
+                ret = ret + self.metrics(vals, explainer_map[0])
 
-        return self.metrics(vals, use_map)
+        return ret
 
 
 class TargetDifferenceEvaluator():
